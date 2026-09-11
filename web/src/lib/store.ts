@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { storeKeys, clearKeys, getKeys } from '@/lib/keystore';
+import { storeKeys, clearKeys, getKeys, storeKeysFor, getKeysFor, deleteKeysFor } from '@/lib/keystore';
 import type { Location } from '@/lib/api';
 import type { Language } from '@/lib/i18n';
 
@@ -16,9 +16,28 @@ interface UserData {
   fingerprint: string;
 }
 
+/**
+ * A second, third, ... phone whose location is shown beside your own.
+ *
+ * Its private key is unwrapped from its own password in this browser, exactly
+ * as the primary device's is, so the server still holds nothing it can read.
+ * What is kept here is the cost of that: this browser can decrypt every device
+ * it has been given, so whoever holds this browser holds the family's map.
+ */
+export interface Companion {
+  fmdId: string;
+  label: string;
+  sessionToken: string;
+  rsaEncKey: CryptoKey;
+  rsaSigKey: CryptoKey;
+  /** Latest known position, decrypted here. Null until first fetched. */
+  latest: Location | null;
+}
+
 interface AppState {
   isLoggedIn: boolean;
   userData: UserData | null;
+  companions: Companion[];
   wasAuthRestoreTried: boolean;
   theme: Theme;
   units: UnitSystem;
@@ -34,6 +53,10 @@ interface AppState {
   isPicturesLoading: boolean;
 
   setUserData: (data: UserData, persistent: boolean) => Promise<void>;
+  addCompanion: (c: Omit<Companion, 'latest'>) => Promise<void>;
+  removeCompanion: (fmdId: string) => Promise<void>;
+  setCompanionLatest: (fmdId: string, latest: Location | null) => void;
+  restoreCompanions: () => Promise<void>;
   logout: () => Promise<void>;
   restoreAuth: () => Promise<void>;
   setTheme: (theme: Theme) => void;
@@ -41,6 +64,7 @@ interface AppState {
 }
 
 const KEY_AUTH = 'fmd-auth';
+const KEY_COMPANIONS = 'fmd-companions';
 const KEY_SETTINGS = 'fmd-settings';
 
 export const useStore = create<AppState>()(
@@ -48,6 +72,7 @@ export const useStore = create<AppState>()(
     (set) => ({
       isLoggedIn: false,
       userData: null,
+      companions: [],
       wasAuthRestoreTried: false,
       theme: 'system',
       units: 'metric',
@@ -83,11 +108,84 @@ export const useStore = create<AppState>()(
         });
       },
 
+      addCompanion: async (c) => {
+        await storeKeysFor(c.fmdId, { rsaEncKey: c.rsaEncKey, rsaSigKey: c.rsaSigKey });
+
+        const stored = JSON.parse(localStorage.getItem(KEY_COMPANIONS) || '[]') as Array<{
+          fmdId: string;
+          label: string;
+          sessionToken: string;
+        }>;
+        const others = stored.filter((e) => e.fmdId !== c.fmdId);
+        others.push({ fmdId: c.fmdId, label: c.label, sessionToken: c.sessionToken });
+        localStorage.setItem(KEY_COMPANIONS, JSON.stringify(others));
+
+        set((state) => ({
+          companions: [
+            ...state.companions.filter((x) => x.fmdId !== c.fmdId),
+            { ...c, latest: null },
+          ],
+        }));
+      },
+
+      removeCompanion: async (fmdId: string) => {
+        await deleteKeysFor(fmdId);
+        const stored = JSON.parse(localStorage.getItem(KEY_COMPANIONS) || '[]') as Array<{
+          fmdId: string;
+        }>;
+        localStorage.setItem(
+          KEY_COMPANIONS,
+          JSON.stringify(stored.filter((e) => e.fmdId !== fmdId))
+        );
+        set((state) => ({ companions: state.companions.filter((c) => c.fmdId !== fmdId) }));
+      },
+
+      setCompanionLatest: (fmdId: string, latest: Location | null) => {
+        set((state) => ({
+          companions: state.companions.map((c) => (c.fmdId === fmdId ? { ...c, latest } : c)),
+        }));
+      },
+
+      restoreCompanions: async () => {
+        try {
+          const stored = JSON.parse(localStorage.getItem(KEY_COMPANIONS) || '[]') as Array<{
+            fmdId: string;
+            label: string;
+            sessionToken: string;
+          }>;
+          const restored: Companion[] = [];
+          for (const entry of stored) {
+            const keys = await getKeysFor(entry.fmdId);
+            // A companion whose keys are gone cannot be decrypted, so drop it
+            // rather than show a device that will never report.
+            if (!keys) continue;
+            restored.push({
+              fmdId: entry.fmdId,
+              label: entry.label,
+              sessionToken: entry.sessionToken,
+              rsaEncKey: keys.rsaEncKey,
+              rsaSigKey: keys.rsaSigKey,
+              latest: null,
+            });
+          }
+          set({ companions: restored });
+        } catch {
+          localStorage.removeItem(KEY_COMPANIONS);
+        }
+      },
+
       logout: async () => {
         localStorage.removeItem(KEY_AUTH);
         await clearKeys();
+        // Logging out means logging out: the companions' keys go with it, or
+        // whoever opens this browser next still holds the family's map.
+        for (const c of useStore.getState().companions) {
+          await deleteKeysFor(c.fmdId);
+        }
+        localStorage.removeItem(KEY_COMPANIONS);
         set({
           userData: null,
+          companions: [],
           isLoggedIn: false,
           pushUrl: null,
           locations: [],
