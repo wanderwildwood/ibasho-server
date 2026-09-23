@@ -1,90 +1,82 @@
-# FMD Server
+# Whereabouts server (ibasho-server)
 
-This is the official server for [FMD Android](https://gitlab.com/fmd-foss/fmd-android)
-written in Go and React.
+The server half of [Whereabouts](https://github.com/wanderwildwood/ibasho): a fork of
+[FMD Server](https://gitlab.com/fmd-foss/fmd-server) that adds one thing, a map of the
+other people who share their location with you, and gives the web page a plain
+ink-on-paper look.
 
-The FMD app can register an account on FMD Server.
-The app can then upload its location at regular intervals.
-You can also push commands to the FMD app on your device from FMD Server,
-e.g. to make your device ring.
+Everything FMD Server does, this does. A phone running Whereabouts or the original FMD
+app registers an account, uploads its location encrypted with a password only its owner
+knows, and takes commands such as *ring* from the web page. The server stores only what
+it cannot read.
 
-## Running FMD Server
+## What this adds
 
-You can try FMD Server on your laptop with Docker.
+**Other devices.** Under the device panel, add another account on the same server by its
+id and password, and its latest location shows on your map as a named dot, with when it
+was last seen and its battery. The password is the consent: someone who gives you theirs
+is choosing to be on your map, and can leave it by changing it.
 
-```bash
-docker run --rm -p 8080:8080 registry.gitlab.com/fmd-foss/fmd-server:0.17.0
-```
+Each added device keeps its own session and keys in your browser, apart from your own
+login. What is kept is the password *hash* the server asks for at log-in, never the
+password, so an expired session can renew itself. If the hash is refused, the password has
+changed: the page asks for the new one and stops trying, because the server locks an
+account after a handful of failures. Logging out forgets every added device.
 
-You can now visit FMD Server's web interface in your browser at <http://localhost:8080>.
-You can register you FMD app using the server URL `http://<your-laptops-ip>:8080`.
+**An iPhone, through Overland.** There is no iPhone version of Whereabouts. Instead, an
+iPhone runs [Overland](https://overland.p3k.app/) and posts its location to the small
+bridge in [`overland/`](overland), which encrypts each point into that phone's account
+exactly as the Android app would. The bridge sees each point before encrypting it; that is
+the price of an iPhone taking part without an app of its own. It cannot send the iPhone
+commands.
 
-Note that these steps are only for quick on-laptop testing and NOT for production!
+**The look.** Ink on paper, and a real dark theme; Lato; no animation; a greyscale map.
+The page can be installed as an app, and a switch in the header picks automatic, light or
+dark.
 
-## Self-hosting
+## Running it
 
-For self-hosting instructions, see the [installation guide](https://fmd-foss.org/docs/fmd-server/installation/overview).
-
-## Community projects
-
-See [this list](https://fmd-foss.org/docs/fmd-server/community) of community-maintained projects related to FMD Server.
-
-## Building
-
-FMD Server consists of two parts: a web frontend written in React and a Go backend.
-
-You first need to compile the React app as a static site.
-See the [web/README.md](web/README.md) for instructions on how to build the web app.
-
-In a second step, compile the Go code into a static Go binary.
-This binary is stand-alone, and includes both the frontend and the backend.
-To build the Go app:
+Build and run with Docker. The image carries the web page and the server in one binary.
 
 ```bash
-go run . serve
-# or
-go build
-./fmd-server serve
+git clone https://github.com/wanderwildwood/ibasho-server
+cd ibasho-server
+docker build -t ibasho-server .
+mkdir db && sudo chown 1000:1000 db   # the server runs as uid 1000 inside the image
+docker run -d --name ibasho -p 8080:8080 \
+  -v ./db:/var/lib/fmd-server/db \
+  ibasho-server serve --db-dir /var/lib/fmd-server/db
 ```
 
-The [Makefile](./Makefile) has targets that automate these steps:
+The web page needs HTTPS: browsers only offer the WebCrypto the page decrypts with on a
+secure origin, and the app refuses plain HTTP too. Put it behind a reverse proxy such as
+Caddy with a certificate. `config.example.yml` lists the settings; set a
+`RegistrationToken` so that strangers cannot make accounts, and `RemoteIpHeader` if a
+proxy sits in front, or the login lockout sees only the proxy.
 
-```sh
-make server
-make run
+FMD's own [installation guide](https://fmd-foss.org/docs/fmd-server/installation/overview)
+covers the rest and applies here unchanged.
+
+### The Overland bridge
+
+```bash
+cd overland
+go build -o fmd-overland .
+./fmd-overland register -fmd-url http://127.0.0.1:8080 -user <account> -password <password> \
+  -registration-token <token> -endpoint https://<your server>/overland
 ```
 
-To easily build from source with Docker Compose, replace `image:` with `build:` as shown below.
-Then run `docker compose build && docker compose up`.
+`register` makes the account and prints a device entry for the bridge's config file, and an
+`overland://setup` link that configures Overland on the iPhone in one tap. Then run
+`fmd-overland serve -config <file>` and route only `/overland` to it from the proxy. Its
+`/status` page names the devices, so keep that private.
 
-```yaml
-services:
-  fmd:
-#    image: registry.gitlab.com/fmd-foss/fmd-server:v0.17.0
-    build: https://gitlab.com/fmd-foss/fmd-server.git#master
-```
+## Credit
 
-## Donate
+This is FMD Server by Nulide, Thore Goebel and its contributors. **Nearly all of the code
+is theirs**: the protocol, the encryption, the API and the web page this restyles. If it is
+useful to you, [support FMD](https://liberapay.com/FMD/donate).
 
-<script src="https://liberapay.com/FMD/widgets/button.js"></script>
-<noscript><a href="https://liberapay.com/FMD/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript>
+## Licence
 
-<a href='https://ko-fi.com/H2H35JLOY' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://cdn.ko-fi.com/cdn/kofi4.png?v=2' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-
-## Funding
-
-<div style="display: inline-flex; align-items: center;">
-    <a href="https://nlnet.nl/" target="_blank">
-        <img src="https://nlnet.nl/logo/banner.svg" alt="nlnet" height="50">
-    </a>
-    <a href="https://nlnet.nl/taler" target="_blank">
-        <img src="https://nlnet.nl/image/logos/NGI_Mobifree_tag.svg" alt="NextGenerationInternet" height="50">
-    </a>
-</div>
-
-This project was funded through the NGI Mobifree Fund.
-For more details, visit our [project page](https://nlnet.nl/project/FMD/)
-
-## License
-
-FMD Server is published under [GPLv3-or-later](LICENSE).
+GNU General Public License, version 3 or later, the same as upstream. See [LICENSE](LICENSE).
