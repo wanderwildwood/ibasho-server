@@ -14,7 +14,6 @@ import { WebCryptoWarningModal } from './modals/WebCryptoWarningModal';
 import { LanguageNativeSelect } from './LanguageNativeSelect';
 import { ApiV2Service } from '@/lib/apiv2';
 import { useStore } from '@/lib/store';
-import { InstallControls, ThemeCycleButton } from '@/components/DesktopControls';
 
 const SLOW_LOGIN_THRESHOLD_MS = 10_000;
 const SLOW_LOGIN_TOAST_DURATION_MS = 30_000;
@@ -115,9 +114,7 @@ export const LoginForm = () => {
 
   return (
     <div className="flex min-h-full flex-col px-4">
-      <div className="flex justify-end gap-2 pt-8">
-        <InstallControls />
-        <ThemeCycleButton />
+      <div className="flex justify-end pt-8">
         <LanguageNativeSelect />
       </div>
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Download, ExternalLink, ImageMinus, MapPinMinus, Shield, Trash2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { InstallControls } from '@/components/DesktopControls';
 import { toast } from 'sonner';
 import { apiService } from '@/lib/apiService';
 import { useStore, logout, type UnitSystem } from '@/lib/store';
@@ -112,6 +113,13 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             <div>
               <h3 className="text-fmd-green mb-3 font-semibold">{t('theme')}</h3>
               <ThemeToggle />
+            </div>
+
+            <div>
+              <h3 className="text-fmd-green mb-3 font-semibold">
+                {t('common:desktop.app_heading')}
+              </h3>
+              <InstallControls />
             </div>
 
             <div>

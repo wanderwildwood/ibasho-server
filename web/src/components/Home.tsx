@@ -137,11 +137,15 @@ const Home = () => {
       <div className="dark:bg-fmd-dark-lighter flex h-[calc(100vh-3.1rem)] flex-col bg-gray-50 text-gray-900 dark:text-white">
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 lg:flex-row lg:overflow-hidden">
           {userData && (
-            <div className="order-2 w-full lg:order-1 lg:w-100 lg:shrink-0">
-              <DevicePanel
-                onViewPhotos={() => setPhotosOpen(true)}
-                onLocateCommand={() => setLastLocateTime(Date.now())}
-              />
+            <div className="order-2 flex w-full flex-col gap-4 lg:order-1 lg:min-h-0 lg:w-100 lg:shrink-0">
+              {/* The phone's own panel takes the room that is left, so Other devices below it
+                  always keeps its own height instead of being pushed out of the column. */}
+              <div className="lg:min-h-0 lg:flex-1">
+                <DevicePanel
+                  onViewPhotos={() => setPhotosOpen(true)}
+                  onLocateCommand={() => setLastLocateTime(Date.now())}
+                />
+              </div>
               <FamilyPanel />
             </div>
           )}

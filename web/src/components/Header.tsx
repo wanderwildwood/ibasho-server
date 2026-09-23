@@ -11,7 +11,6 @@ import { apiService } from '@/lib/apiService';
 import { forgetAllDevices } from '@/lib/family';
 import { useStore } from '@/lib/store';
 import { Link } from 'react-router-dom';
-import { InstallControls, ThemeCycleButton } from '@/components/DesktopControls';
 
 interface HeaderProps {
   onSettingsClick: () => void;
@@ -30,8 +29,6 @@ export const Header = ({ onSettingsClick, onAccountInfoClick }: HeaderProps) => 
       </Link>
       {userData && (
         <div className="flex items-center gap-2">
-          <InstallControls />
-          <ThemeCycleButton />
           <Button
             variant="ghost"
             size="icon-sm"

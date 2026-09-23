@@ -9,32 +9,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { desktopEntry, install, useInstall } from '@/lib/install';
-import { useStore, type Theme } from '@/lib/store';
-
-// Auto, then light, then dark, as on kotozute's Desktop Sync page: one small pill that says
-// what it is set to, rather than a menu.
-const NEXT: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
-
-export const ThemeCycleButton = () => {
-  const { t } = useTranslation('common');
-  const { theme, setTheme } = useStore();
-  const label = {
-    system: t('desktop.theme_auto'),
-    light: t('desktop.theme_light'),
-    dark: t('desktop.theme_dark'),
-  }[theme];
-
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      title={t('desktop.theme_title')}
-      onClick={() => setTheme(NEXT[theme])}
-    >
-      {label}
-    </Button>
-  );
-};
 
 const agent = navigator.userAgent;
 const platform =
@@ -84,8 +58,8 @@ export const InstallControls = () => {
   const { prompt, installed } = useInstall();
   const [helpOpen, setHelpOpen] = useState(false);
 
-  // Inside the installed window there is nothing left to offer.
-  if (installed) return null;
+  // Inside the installed window there is nothing left to offer, so it says so.
+  if (installed) return <p className="text-sm">{t('desktop.installed')}</p>;
 
   return (
     <>

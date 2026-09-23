@@ -205,7 +205,7 @@ export const FamilyPanel = () => {
   }, []);
 
   return (
-    <div className="dark:border-fmd-dark-border dark:bg-fmd-dark mt-4 rounded-lg border border-gray-200 bg-white p-4">
+    <div className="dark:border-fmd-dark-border dark:bg-fmd-dark shrink-0 rounded-lg border border-gray-200 bg-white p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-gray-900 dark:text-white">{t('family.title')}</h2>
         <div className="flex gap-1">
