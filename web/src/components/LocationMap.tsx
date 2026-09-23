@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner';
 
 import 'leaflet/dist/leaflet.css';
 import { apiService } from '@/lib/apiService';
+import { useFamily } from '@/lib/family';
 
 const POLYLINE_OPACITY = 0.6;
 const POLYLINE_WEIGHT = 3;
@@ -26,6 +27,15 @@ const formatProvider = (provider: string): string => {
   return providerMap[provider] ?? provider;
 };
 
+// Names and fields from other people's devices go into Leaflet's HTML, so they are escaped.
+const escapeHtml = (s: string) =>
+  s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!
+  );
+
+const FAMILY_MARKER_RADIUS = 8;
+
 const calculateZoomLevel = (accuracy?: number): number => {
   if (!accuracy) return 16;
 
@@ -39,6 +49,9 @@ const calculateZoomLevel = (accuracy?: number): number => {
 
 export const LocationMap = () => {
   const { locations, units, currentLocationIndex, isLocationsLoading } = useStore();
+  const familyDevices = useFamily((s) => s.devices);
+  const familyStatus = useFamily((s) => s.status);
+  const familyFocus = useFamily((s) => s.focus);
 
   const { t } = useTranslation('dashboard');
 
@@ -51,6 +64,9 @@ export const LocationMap = () => {
   const accuracyCirclesLayerRef = useRef<LeafletType.LayerGroup | null>(null);
   const polylineRef = useRef<LeafletType.Polyline | null>(null);
   const selectedIconRef = useRef<LeafletType.Icon | null>(null);
+  const familyLayerRef = useRef<LeafletType.LayerGroup | null>(null);
+  const familyMarkersRef = useRef<Map<string, LeafletType.CircleMarker>>(new Map());
+  const familyFittedRef = useRef(false);
 
   const locationCacheRef = useRef<Set<number>>(new Set());
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -118,6 +134,8 @@ export const LocationMap = () => {
         accuracyCirclesLayerRef.current = leafletRef.current
           .layerGroup()
           .addTo(mapInstanceRef.current);
+
+        familyLayerRef.current = leafletRef.current.layerGroup().addTo(mapInstanceRef.current);
 
         tileLayerRef.current = leafletRef.current
           .tileLayer(tileServerUrl, {
@@ -274,6 +292,79 @@ export const LocationMap = () => {
       lastLocationRef.current = { lat, lon };
     }
   }, [currentLocationIndex, units, locations, mapPrimaryColor, mapAccentColor, mapReady]);
+
+  // The other devices: one named dot each, at its latest fix.
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapInstanceRef.current;
+    const layer = familyLayerRef.current;
+    if (!L || !map || !layer) return;
+
+    layer.clearLayers();
+    familyMarkersRef.current.clear();
+
+    const points: [number, number][] = [];
+    for (const device of familyDevices) {
+      const loc = familyStatus[device.fmdId]?.location;
+      if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lon)) continue;
+
+      const accuracy = Number(loc.accuracy);
+      if (accuracy > 0) {
+        L.circle([loc.lat, loc.lon], {
+          radius: accuracy,
+          color: mapAccentColor,
+          fillColor: mapAccentColor,
+          fillOpacity: CIRCLE_FILL_OPACITY,
+          weight: CIRCLE_WEIGHT,
+        }).addTo(layer);
+      }
+
+      const marker = L.circleMarker([loc.lat, loc.lon], {
+        radius: FAMILY_MARKER_RADIUS,
+        color: '#ffffff',
+        weight: 2,
+        fillColor: mapAccentColor,
+        fillOpacity: 1,
+      })
+        .addTo(layer)
+        .bindTooltip(escapeHtml(device.name), {
+          permanent: true,
+          direction: 'right',
+          offset: [8, 0],
+        })
+        .bindPopup(
+          `
+        <div style="min-width: 5rem;">
+          <strong>${escapeHtml(device.name)}</strong><br/>
+          <strong>${t('time')}:</strong> ${escapeHtml(new Date(Number(loc.date)).toLocaleString())}<br/>
+          <strong>${t('battery')}:</strong> ${Number(loc.bat)}%<br/>
+          <strong>${t('provider')}:</strong> ${escapeHtml(formatProvider(String(loc.provider)))}<br/>
+          ${accuracy > 0 ? `<strong>${t('accuracy')}:</strong> ${convertDistance(accuracy, units)}<br/>` : ''}
+        </div>
+      `
+        );
+      familyMarkersRef.current.set(device.fmdId, marker);
+      points.push([loc.lat, loc.lon]);
+    }
+
+    // With nothing of its own to show, the map opens on the other devices, once.
+    if (!familyFittedRef.current && points.length > 0 && locations.length === 0) {
+      familyFittedRef.current = true;
+      map.fitBounds(points, { maxZoom: 15, padding: [40, 40] });
+    }
+  }, [familyDevices, familyStatus, units, locations.length, mapAccentColor, mapReady, t]);
+
+  // Picking a device in the list brings it into view.
+  useEffect(() => {
+    if (!familyFocus || !mapInstanceRef.current) return;
+    const marker = familyMarkersRef.current.get(familyFocus.fmdId);
+    if (!marker) return;
+    mapInstanceRef.current.setView(
+      marker.getLatLng(),
+      Math.max(mapInstanceRef.current.getZoom(), 15)
+    );
+    marker.openPopup();
+  }, [familyFocus]);
 
   return (
     <div className="bg-fmd-light dark:bg-fmd-dark relative flex h-full w-full flex-col rounded-lg">

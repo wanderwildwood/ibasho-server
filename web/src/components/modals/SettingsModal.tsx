@@ -6,6 +6,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { toast } from 'sonner';
 import { apiService } from '@/lib/apiService';
 import { useStore, logout, type UnitSystem } from '@/lib/store';
+import { forgetAllDevices } from '@/lib/family';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -279,6 +280,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             try {
               await apiService().deleteAccount();
               await logout();
+              await forgetAllDevices();
               setShowDeleteAccountConfirm(false);
               onClose();
             } catch (error) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LoginForm } from '@/components/LoginForm';
 import { DevicePanel } from '@/components/DevicePanel';
+import { FamilyPanel } from '@/components/FamilyPanel';
 import { LocationMap } from '@/components/LocationMap';
 import { PhotosModal } from '@/components/modals/PhotosModal';
 import { AccountInfoModal } from '@/components/modals/AccountInfoModal';
@@ -141,6 +142,7 @@ const Home = () => {
                 onViewPhotos={() => setPhotosOpen(true)}
                 onLocateCommand={() => setLastLocateTime(Date.now())}
               />
+              <FamilyPanel />
             </div>
           )}
 

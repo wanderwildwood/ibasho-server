@@ -18,5 +18,30 @@
   "accuracy": "Accuracy",
   "altitude": "Altitude",
   "speed": "Speed",
-  "bearing": "Bearing"
+  "bearing": "Bearing",
+  "family": {
+    "title": "Other devices",
+    "empty": "Only this device so far. Add another account on this server to see it here too.",
+    "add_device": "Add a device",
+    "refresh": "Fetch their locations again",
+    "name": "Name to show",
+    "fmd_id": "Its FMD ID",
+    "password": "Its password",
+    "add_hint": "Its keys stay in this browser. Logging out forgets every device here.",
+    "add": "Add",
+    "cancel": "Cancel",
+    "add_failed": "Could not add the device",
+    "no_location": "No location yet",
+    "show_on_map": "Show on the map",
+    "just_now": "Just now",
+    "minutes_ago_one": "{{count}} minute ago",
+    "minutes_ago_other": "{{count}} minutes ago",
+    "hours_ago_one": "{{count}} hour ago",
+    "hours_ago_other": "{{count}} hours ago",
+    "new_password": "Its password changed; enter the new one",
+    "log_in": "Log in",
+    "remove": "Remove",
+    "remove_title": "Remove {{name}}?",
+    "remove_message": "It leaves this map and its keys leave this browser. Nothing on the device or the server changes."
+  }
 }

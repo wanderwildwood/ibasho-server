@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { apiService } from '@/lib/apiService';
+import { forgetAllDevices } from '@/lib/family';
 import { useStore } from '@/lib/store';
 import { Link } from 'react-router-dom';
 
@@ -57,6 +58,9 @@ export const Header = ({ onSettingsClick, onAccountInfoClick }: HeaderProps) => 
                 onClick={() => {
                   void apiService().logout();
                   void logout();
+                  // Only an explicit log-out forgets the other devices. A session that
+                  // merely expired keeps them, so logging back in brings the map back whole.
+                  void forgetAllDevices();
                 }}
               >
                 <LogOut className="mr-2 h-4 w-4" />
