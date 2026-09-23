@@ -14,6 +14,7 @@ import { WebCryptoWarningModal } from './modals/WebCryptoWarningModal';
 import { LanguageNativeSelect } from './LanguageNativeSelect';
 import { ApiV2Service } from '@/lib/apiv2';
 import { useStore } from '@/lib/store';
+import { InstallControls, ThemeCycleButton } from '@/components/DesktopControls';
 
 const SLOW_LOGIN_THRESHOLD_MS = 10_000;
 const SLOW_LOGIN_TOAST_DURATION_MS = 30_000;
@@ -114,13 +115,15 @@ export const LoginForm = () => {
 
   return (
     <div className="flex min-h-full flex-col px-4">
-      <div className="flex justify-end pt-8">
+      <div className="flex justify-end gap-2 pt-8">
+        <InstallControls />
+        <ThemeCycleButton />
         <LanguageNativeSelect />
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center py-8">
         <div className="dark:border-fmd-dark-border dark:bg-fmd-dark w-full max-w-md rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
-          <h1 className="text-fmd-green mb-6 text-center text-2xl font-bold">FMD Server</h1>
+          <h1 className="text-fmd-green mb-6 text-center text-2xl font-bold">Whereabouts</h1>
 
           <p className="mb-2 text-center text-sm text-gray-700 dark:text-gray-300">
             {t('subtitle')}

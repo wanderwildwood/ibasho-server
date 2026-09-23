@@ -6,5 +6,22 @@
   "confirm": "Confirm",
   "close": "Close",
   "okay": "Okay",
-  "language": "Language"
+  "language": "Language",
+  "desktop": {
+    "theme_title": "Theme: automatic, light or dark",
+    "theme_auto": "Auto",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "install": "Install",
+    "launcher": "Launcher",
+    "install_title": "Keep this as an app on this computer",
+    "launcher_title": "Keep this as an app",
+    "launcher_description": "A window of its own, with no tabs or address bar, and a place in your applications.",
+    "linux_text": "The launcher opens this page in a window of its own where a Chromium browser is installed, and in your usual browser where not.",
+    "linux_download": "Download launcher",
+    "linux_where": "Save it to",
+    "chromium_text": "Your browser can do this without anything to download: in its menu, choose Save and share, then Install page as app (or Create shortcut, with Open as window ticked). Edge calls it Apps, then Install this site as an app.",
+    "safari_text": "In Safari: File, then Add to Dock. It becomes a window of its own with an icon in the Dock.",
+    "other_text": "Bookmark this page. Chrome, Edge and Brave can go further: Create shortcut, with Open as window ticked, gives it a window and a menu entry of its own."
+  }
 }

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from '@/lib/store';
 import { ClientLayout } from '@/components/ClientLayout';
 import '@/lib/i18n'; // Initialize i18n
+import '@/lib/install'; // Catch the install offer, which fires before the dashboard loads
 
 import App from './App';
 import './globals.css';

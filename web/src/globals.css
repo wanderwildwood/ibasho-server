@@ -157,3 +157,179 @@
 .leaflet-fullscreen-icon.leaflet-fullscreen-on {
   background-image: var(--fullscreen-icon-exit);
 }
+
+/* ---------------------------------------------------------------------------------------
+   Whereabouts: the e-ink look, after kotozute's Desktop Sync page.
+
+   Ink on paper, and a real dark theme for a real screen. No colour: the brand green, the
+   blue-tinted greys and the warning yellows all resolve to neutral ink tones here, which
+   is blunter than restyling each component but keeps every upstream file untouched, so
+   upstream changes merge. Red stays, for the few things that destroy data.
+   --------------------------------------------------------------------------------------- */
+
+:root {
+  --ink: #000;
+  --paper: #fff;
+  --ink-muted: #666;
+  --rule: #e5e5e5;
+}
+.dark {
+  --ink: #e6e6e6;
+  --paper: #0d0d0d;
+  --ink-muted: #8c8c8c;
+  --rule: #2b2b2b;
+}
+
+@theme {
+  --font-sans: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Read by the map as concrete values when it draws, so these cannot follow the theme. */
+  --color-fmd-map-primary: #1a1a1a;
+  --color-fmd-map-accent: #1a1a1a;
+
+  --color-fmd-dark: #0d0d0d;
+  --color-fmd-dark-lighter: #0d0d0d;
+  --color-fmd-dark-border: #2b2b2b;
+  --color-fmd-light: #fff;
+  --color-fmd-light-darker: #f0f0f0;
+  --color-fmd-light-border: #e5e5e5;
+
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f0f0f0;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+  --color-gray-950: #0d0d0d;
+
+  --color-green-50: #fafafa;
+  --color-green-100: #f0f0f0;
+  --color-green-200: #e5e5e5;
+  --color-green-300: #a3a3a3;
+  --color-green-400: #e6e6e6;
+  --color-green-500: #404040;
+  --color-green-600: #171717;
+  --color-green-700: #000;
+  --color-green-800: #000;
+  --color-green-900: #000;
+
+  /* Upstream uses 200 as a light-mode border and as dark-mode text, and 900 as a
+     translucent dark-mode fill: so 200 is a light grey and 900 a mid one. */
+  --color-yellow-50: #fff;
+  --color-yellow-100: #f0f0f0;
+  --color-yellow-200: #d4d4d4;
+  --color-yellow-300: #e6e6e6;
+  --color-yellow-400: #e6e6e6;
+  --color-yellow-500: #404040;
+  --color-yellow-600: #171717;
+  --color-yellow-700: #000;
+  --color-yellow-800: #000;
+  --color-yellow-900: #737373;
+
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+}
+
+/* The brand colour, wherever upstream names it, is ink. Declared inline so it follows the
+   light/dark switch instead of being fixed at build time. */
+@theme inline {
+  --color-fmd-green: var(--ink);
+  --color-fmd-green-dark: var(--ink);
+}
+
+:root,
+.dark {
+  --radius: 5px;
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: var(--paper);
+  --secondary-foreground: var(--ink);
+  --muted: var(--rule);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--rule);
+  --accent-foreground: var(--ink);
+  --border: var(--rule);
+  --input: var(--ink-muted);
+  --ring: var(--ink);
+}
+
+body,
+.dark body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Nothing slides or fades; a change simply appears, as it does on the phone. The spinner
+   keeps turning, because a still spinner reads as a hang. */
+*,
+*::before,
+*::after {
+  transition: none !important;
+}
+
+/* One heavy rule under the header, as on the Desktop Sync page. */
+header {
+  border-bottom: 3px solid var(--ink) !important;
+}
+
+/* Buttons are pills: filled ink for the main action, an ink outline otherwise. */
+[data-slot='button'] {
+  border-radius: 999px;
+}
+[data-slot='button']:not([class*='bg-']):not([class*='hover:bg-gray']) {
+  border: 2px solid var(--ink);
+}
+[data-slot='button']:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+a:hover,
+.dark a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+/* The map in greys: tiles, the own device's pins, and the older pins lighter than the
+   selected one, which is the only thing drawn in full ink. */
+/* leaflet.css loads after this file and would win a tie, hence the extra class. */
+.leaflet-container.leaflet-container {
+  background: var(--paper);
+}
+.leaflet-tile-pane {
+  filter: grayscale(1) contrast(1.05);
+}
+.dark .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) contrast(0.9) brightness(0.9);
+}
+.leaflet-marker-pane img {
+  filter: grayscale(1) opacity(0.55);
+}
+.leaflet-marker-pane img.marker-selected {
+  filter: grayscale(1) brightness(0);
+}
+.dark .leaflet-marker-pane img.marker-selected {
+  filter: grayscale(1) brightness(0) invert(0.9);
+}
+.leaflet-tooltip,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 5px;
+  box-shadow: none;
+  font-family: var(--font-sans);
+}
+.leaflet-tooltip::before {
+  display: none;
+}
