@@ -3,7 +3,6 @@ import { LoginForm } from '@/components/LoginForm';
 import { DevicePanel } from '@/components/DevicePanel';
 import { FamilyPanel } from '@/components/FamilyPanel';
 import { LocationMap } from '@/components/LocationMap';
-import { PhotosModal } from '@/components/modals/PhotosModal';
 import { AccountInfoModal } from '@/components/modals/AccountInfoModal';
 import { SettingsModal } from '@/components/modals/SettingsModal';
 import { Header } from '@/components/Header';
@@ -18,7 +17,6 @@ const minute = 60 * 1000;
 const Home = () => {
   const { isLoggedIn, userData, wasAuthRestoreTried, locations } = useStore();
 
-  const [photosOpen, setPhotosOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountInfoOpen, setAccountInfoOpen] = useState(false);
   const [lastLocateTime, setLastLocateTime] = useState<number | null>(null);
@@ -141,10 +139,7 @@ const Home = () => {
               {/* The phone's own panel takes the room that is left, so Other devices below it
                   always keeps its own height instead of being pushed out of the column. */}
               <div className="lg:min-h-0 lg:flex-1">
-                <DevicePanel
-                  onViewPhotos={() => setPhotosOpen(true)}
-                  onLocateCommand={() => setLastLocateTime(Date.now())}
-                />
+                <DevicePanel onLocateCommand={() => setLastLocateTime(Date.now())} />
               </div>
               <FamilyPanel />
             </div>
@@ -155,8 +150,6 @@ const Home = () => {
           </div>
         </div>
       </div>
-
-      <PhotosModal isOpen={photosOpen} onClose={() => setPhotosOpen(false)} />
 
       <AccountInfoModal isOpen={accountInfoOpen} onClose={() => setAccountInfoOpen(false)} />
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Download, ExternalLink, ImageMinus, MapPinMinus, Shield, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, MapPinMinus, Shield, Trash2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { InstallControls } from '@/components/DesktopControls';
 import { toast } from 'sonner';
@@ -26,7 +26,6 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
   const { t } = useTranslation(['settings', 'login', 'common', 'errors']);
 
   const [showDeleteLocationsConfirm, setShowDeleteLocationsConfirm] = useState(false);
-  const [showDeletePicturesConfirm, setShowDeletePicturesConfirm] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
 
   const [showExportLoading, setShowExportLoading] = useState(false);
@@ -156,11 +155,6 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                   {t('delete_locations.button')}
                 </Button>
 
-                <Button variant="destructive" onClick={() => setShowDeletePicturesConfirm(true)}>
-                  <ImageMinus className="h-4 w-4" />
-                  {t('delete_pictures.button')}
-                </Button>
-
                 <Button variant="destructive" onClick={() => setShowDeleteAccountConfirm(true)}>
                   <Trash2 className="h-4 w-4" />
                   {t('delete_account')}
@@ -183,7 +177,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
               <ul className="space-y-1 text-sm">
                 <li>
                   <a
-                    href="https://gitlab.com/fmd-foss/fmd-server"
+                    href="https://github.com/wanderwildwood/ibasho-server"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-fmd-green dark:hover:text-fmd-green flex items-center gap-2 text-gray-700 dark:text-gray-300"
@@ -194,7 +188,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                 </li>
                 <li>
                   <a
-                    href="https://fmd-foss.org"
+                    href="https://github.com/wanderwildwood/ibasho"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-fmd-green dark:hover:text-fmd-green flex items-center gap-2 text-gray-700 dark:text-gray-300"
@@ -216,15 +210,20 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             </div>
 
             <div>
-              <h3 className="text-fmd-green font-semibold">FMD Android</h3>
+              <h3 className="text-fmd-green font-semibold">Whereabouts for Android</h3>
               <a
-                href="https://f-droid.org/packages/de.nulide.findmydevice/"
+                href="https://github.com/wanderwildwood/ibasho/releases/latest"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-block"
+                className="mt-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
               >
-                <img src="./fdroid-badge.png" alt="Get it on F-Droid" className="h-16 w-auto" />
+                <ExternalLink className="h-4 w-4" />
+                github.com/wanderwildwood/ibasho
               </a>
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                Built on FMD Server by Nulide, Thore Goebel and its contributors, and it works with
+                their app too.
+              </p>
             </div>
           </TabsContent>
         </Tabs>
@@ -253,29 +252,6 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
         title={t('delete_locations.title')}
         message={t('delete_locations.description')}
         confirmText={t('delete_locations.button')}
-      />
-
-      <ConfirmModal
-        isOpen={showDeletePicturesConfirm}
-        onCancel={() => setShowDeletePicturesConfirm(false)}
-        onConfirm={() => {
-          void (async () => {
-            if (!userData) return;
-
-            try {
-              await apiService().deleteAllPictures();
-              useStore.setState({ pictures: [] });
-
-              setShowDeletePicturesConfirm(false);
-              toast.info(t('delete_pictures.success'));
-            } catch (error) {
-              toast.error(error instanceof Error ? error.message : t('errors:delete_failed'));
-            }
-          })();
-        }}
-        title={t('delete_pictures.title')}
-        message={t('delete_pictures.description')}
-        confirmText={t('delete_pictures.button')}
       />
 
       <ConfirmModal

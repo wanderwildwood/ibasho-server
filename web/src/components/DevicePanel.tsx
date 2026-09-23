@@ -12,9 +12,6 @@ import {
   Flashlight,
   Lock,
   Trash2,
-  Camera,
-  UserCircle,
-  Image,
   ChevronRight,
   ChevronLeft,
   Smartphone,
@@ -29,7 +26,6 @@ import { ActionGroup } from '@/components/ActionGroup';
 import { BatteryIndicator } from '@/components/BatteryIndicator';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { FactoryResetModal } from './modals/FactoryResetModal';
 import { LockMessageModal } from './modals/LockMessageModal';
 
 // Across this file and the UI, commands are ordered by perceived importance.
@@ -59,7 +55,6 @@ export const COMMANDS = {
 } as const;
 
 interface DevicePanelProps {
-  onViewPhotos: () => void;
   onLocateCommand?: () => void;
 }
 
@@ -78,7 +73,7 @@ interface ActionGroupData {
   actions: ActionData[];
 }
 
-export const DevicePanel = ({ onLocateCommand, onViewPhotos }: DevicePanelProps) => {
+export const DevicePanel = ({ onLocateCommand }: DevicePanelProps) => {
   const {
     userData,
     locations,
@@ -92,7 +87,6 @@ export const DevicePanel = ({ onLocateCommand, onViewPhotos }: DevicePanelProps)
   const { t: tDashboard } = useTranslation('dashboard');
   const { t: tError } = useTranslation('errors');
   const [loading, setLoading] = useState(false);
-  const [showFactoryResetConfirm, setShowFactoryResetConfirm] = useState(false);
   const [showLockMessageConfirm, setShowLockMessageConfirm] = useState(false);
 
   useEffect(() => {
@@ -193,13 +187,7 @@ export const DevicePanel = ({ onLocateCommand, onViewPhotos }: DevicePanelProps)
       description: tCommands('lock.description'),
       onClick: () => setShowLockMessageConfirm(true),
     },
-    {
-      icon: Trash2,
-      title: tCommands('factory_reset.title'),
-      description: tCommands('factory_reset.description'),
-      onClick: () => setShowFactoryResetConfirm(true),
-      variant: 'destructive' as const,
-    },
+    // No factory reset: Whereabouts removed wipe, and refuses it even if asked.
   ];
 
   const groupGeneral = {
@@ -209,33 +197,7 @@ export const DevicePanel = ({ onLocateCommand, onViewPhotos }: DevicePanelProps)
     actions: actionsGeneral,
   };
 
-  const actionsPictures = [
-    {
-      icon: UserCircle,
-      title: tCommands('camera_front.title'),
-      description: tCommands('camera_front.description'),
-      onClick: () => void executeCommand(COMMANDS.CAMERA_FRONT),
-    },
-    {
-      icon: Camera,
-      title: tCommands('camera_back.title'),
-      description: tCommands('camera_back.description'),
-      onClick: () => void executeCommand(COMMANDS.CAMERA_BACK),
-    },
-    {
-      icon: Image,
-      title: tCommands('view_photos.title'),
-      description: tCommands('view_photos.description'),
-      onClick: onViewPhotos,
-    },
-  ];
-
-  const groupPictures = {
-    icon: Camera,
-    title: tCommands('camera_group.title'),
-    description: tCommands('camera_group.description'),
-    actions: actionsPictures,
-  };
+  // No camera group: Whereabouts cannot take a photograph, so there are none to view.
 
   const actionsLocationServices = [
     {
@@ -334,7 +296,6 @@ export const DevicePanel = ({ onLocateCommand, onViewPhotos }: DevicePanelProps)
   const actionGroups: Array<ActionGroupData> = [
     groupLocation,
     groupGeneral,
-    groupPictures,
     groupLocationServices,
     groupBluetooth,
     groupRinger,
@@ -473,12 +434,6 @@ export const DevicePanel = ({ onLocateCommand, onViewPhotos }: DevicePanelProps)
       <LockMessageModal
         isOpen={showLockMessageConfirm}
         onClose={() => setShowLockMessageConfirm(false)}
-        executeCommand={(cmd, base) => void executeCommand(cmd, base)}
-      />
-
-      <FactoryResetModal
-        isOpen={showFactoryResetConfirm}
-        onClose={() => setShowFactoryResetConfirm(false)}
         executeCommand={(cmd, base) => void executeCommand(cmd, base)}
       />
     </div>

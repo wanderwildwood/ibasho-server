@@ -132,7 +132,7 @@ export const LoginForm = () => {
           <p className="mb-8 text-center text-sm text-gray-700 dark:text-gray-300">
             {t('setup_instruction_1')}{' '}
             <a
-              href="https://f-droid.org/packages/de.nulide.findmydevice/"
+              href="https://github.com/wanderwildwood/ibasho/releases/latest"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-fmd-green text-gray-600 transition-colors duration-200 dark:text-gray-400"
@@ -180,7 +180,7 @@ export const LoginForm = () => {
       <footer className="pb-4 text-center text-sm text-gray-600 dark:text-gray-400">
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <a
-            href="https://fmd-foss.org"
+            href="https://github.com/wanderwildwood/ibasho"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-fmd-green text-gray-600 transition-colors duration-200 dark:text-gray-400"
@@ -189,7 +189,7 @@ export const LoginForm = () => {
           </a>
           <span>·</span>
           <a
-            href="https://gitlab.com/fmd-foss/fmd-server/"
+            href="https://github.com/wanderwildwood/ibasho-server"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-fmd-green text-gray-600 transition-colors duration-200 dark:text-gray-400"
@@ -208,7 +208,7 @@ export const LoginForm = () => {
         <div className="mt-2 h-4">
           {version && (
             <a
-              href="https://gitlab.com/fmd-foss/fmd-server/-/releases"
+              href="https://github.com/wanderwildwood/ibasho-server/releases"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-fmd-green font-mono text-xs text-gray-600 transition-colors duration-200 dark:text-gray-400"
