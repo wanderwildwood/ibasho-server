@@ -21,7 +21,7 @@ interface SettingsModalProps {
 
 export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
   const { userData, units } = useStore();
-  const { t } = useTranslation(['settings', 'login', 'common']);
+  const { t } = useTranslation(['settings', 'login', 'common', 'errors']);
 
   const [showDeleteLocationsConfirm, setShowDeleteLocationsConfirm] = useState(false);
   const [showDeletePicturesConfirm, setShowDeletePicturesConfirm] = useState(false);
@@ -39,15 +39,16 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
     try {
       const [locations, pictures, pushUrl] = await Promise.all([
-        apiService.getLocations(),
-        apiService.getPictures(),
-        apiService.getPushUrl(),
+        apiService().getLocations(),
+        apiService().getPictures(),
+        apiService().getPushUrl(),
       ]);
 
       let locationsCSV =
         'Date,Provider,Battery,Latitude,Longitude,Accuracy,Altitude,Speed,Bearing\n';
 
-      for (const loc of locations) {
+      for (const locItem of locations) {
+        const loc = locItem.item;
         const date = new Date(loc.time).toISOString();
         const accuracy = loc.accuracy || '';
         const altitude = loc.altitude || '';
@@ -69,7 +70,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
       const picturesFolder = zip.folder('pictures');
       if (picturesFolder) {
         for (let i = 0; i < pictures.length; i++) {
-          picturesFolder.file(`${i}.png`, pictures[i], { base64: true });
+          picturesFolder.file(`${i}.png`, pictures[i].item, { base64: true });
         }
       }
 
@@ -230,13 +231,13 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             if (!userData) return;
 
             try {
-              await apiService.deleteAllLocations();
+              await apiService().deleteAllLocations();
               useStore.setState({ locations: [], currentLocationIndex: 0 });
 
               setShowDeleteLocationsConfirm(false);
               toast.info(t('delete_locations.success'));
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : 'Delete failed');
+              toast.error(error instanceof Error ? error.message : t('errors:delete_failed'));
             }
           })();
         }}
@@ -253,13 +254,13 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             if (!userData) return;
 
             try {
-              await apiService.deleteAllPictures();
+              await apiService().deleteAllPictures();
               useStore.setState({ pictures: [] });
 
               setShowDeletePicturesConfirm(false);
               toast.info(t('delete_pictures.success'));
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : 'Delete failed');
+              toast.error(error instanceof Error ? error.message : t('errors:delete_failed'));
             }
           })();
         }}
@@ -276,12 +277,12 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
             if (!userData) return;
 
             try {
-              await apiService.deleteAccount();
+              await apiService().deleteAccount();
               await logout();
               setShowDeleteAccountConfirm(false);
               onClose();
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : 'Delete failed');
+              toast.error(error instanceof Error ? error.message : t('errors:delete_failed'));
             }
           })();
         }}

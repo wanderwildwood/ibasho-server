@@ -1,13 +1,15 @@
-import { logout, useStore } from '@/lib/store';
-import { decryptData, sign, unwrapPrivateKey } from './crypto';
 import {
   BaseApiService,
   HTTP,
   JSON_HEADER,
   Location,
+  Item,
   ONE_WEEK_SECONDS,
   requestObject,
 } from './api';
+import { CRYPTO_PROTO_V1, decryptData, sign, unwrapPrivateKey } from './crypto';
+import { CryptoKeysV1 } from './keystore';
+import { UserData, logout, useStore } from './store';
 
 interface DataPackage {
   IDT: string;
@@ -37,25 +39,25 @@ export const ENDPOINTS = {
 } as const;
 
 export class ApiV1Service extends BaseApiService {
-  async getSalt(userName: string): Promise<string> {
+  async getSalt(userName: string): Promise<[string, number]> {
     const response = await requestObject<DataPackage>(ENDPOINTS.SALT, HTTP.PUT, {
       IDT: userName,
       Data: 'unused',
     });
-    return response.Data;
+    return [response.Data, CRYPTO_PROTO_V1];
   }
 
   async login(
     userName: string,
     password: string,
-    passwordAuthHash: string,
+    passwordHash: string,
     rememberMe: boolean
   ): Promise<void> {
     const sessionDurationSeconds = rememberMe ? ONE_WEEK_SECONDS : 0;
 
     const response = await requestObject<DataPackage>(ENDPOINTS.REQUEST_ACCESS, HTTP.PUT, {
       IDT: userName,
-      Data: passwordAuthHash,
+      Data: passwordHash,
       SessionDurationSeconds: sessionDurationSeconds,
     });
     const sessionToken = response.Data;
@@ -68,16 +70,18 @@ export class ApiV1Service extends BaseApiService {
     );
 
     const { setUserData } = useStore.getState();
-    await setUserData(
-      {
-        fmdId: userName,
-        rsaEncKey,
-        rsaSigKey,
-        sessionToken,
-        fingerprint,
-      },
-      rememberMe
-    );
+    const keysV1: CryptoKeysV1 = {
+      rsaEncKey,
+      rsaSigKey,
+    };
+    const data: UserData = {
+      fmdId: userName,
+      sessionToken,
+      fingerprint,
+      keysV2: null,
+      keysV1,
+    };
+    await setUserData(data, rememberMe);
   }
 
   async getWrappedPrivateKey(sessionToken: string) {
@@ -141,7 +145,7 @@ export class ApiV1Service extends BaseApiService {
     const { userData } = useStore.getState();
 
     const timestamp = Date.now();
-    const signature = await sign(userData!.rsaSigKey, `${timestamp}:${command}`);
+    const signature = await sign(userData!.keysV1!.rsaSigKey, `${timestamp}:${command}`);
 
     return requestObject(ENDPOINTS.COMMAND, HTTP.POST, {
       IDT: userData!.sessionToken,
@@ -151,7 +155,7 @@ export class ApiV1Service extends BaseApiService {
     });
   }
 
-  async getLocations(): Promise<Location[]> {
+  async getLocations(): Promise<Item<Location>[]> {
     const { userData } = useStore.getState();
 
     const response = await requestObject<string[]>(ENDPOINTS.LOCATIONS, HTTP.POST, {
@@ -166,15 +170,21 @@ export class ApiV1Service extends BaseApiService {
 
     const decryptedLocations = await Promise.all(
       encryptedLocations.map(async (encryptedLoc) => {
-        const decrypted = await decryptData(userData!.rsaEncKey, encryptedLoc);
-        return JSON.parse(decrypted) as Location;
+        const decrypted = await decryptData(userData!.keysV1!.rsaEncKey, encryptedLoc);
+        const location = JSON.parse(decrypted) as Location;
+        const item: Item<Location> = {
+          clientItemIdHex: '',
+          unixMillis: 0,
+          item: location,
+        };
+        return item;
       })
     );
 
     return decryptedLocations;
   }
 
-  async getPictures(): Promise<string[]> {
+  async getPictures(): Promise<Item<string>[]> {
     const { userData } = useStore.getState();
 
     const encryptedPictures = await requestObject<string[]>(ENDPOINTS.PICTURES, HTTP.POST, {
@@ -182,7 +192,15 @@ export class ApiV1Service extends BaseApiService {
     });
 
     const decryptedPictures = await Promise.all(
-      encryptedPictures.map((encryptedPic) => decryptData(userData!.rsaEncKey, encryptedPic))
+      encryptedPictures.map(async (encryptedPic) => {
+        const picture = await decryptData(userData!.keysV1!.rsaEncKey, encryptedPic);
+        const item: Item<string> = {
+          clientItemIdHex: '',
+          unixMillis: 0,
+          item: picture,
+        };
+        return item;
+      })
     );
 
     return decryptedPictures;

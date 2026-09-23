@@ -2,9 +2,21 @@ const DB_NAME = 'fmd-keystore';
 const STORE_NAME = 'keys';
 const DB_VERSION = 1;
 
-export interface KeyStore {
+interface KeyStoreRecord {
+  v1?: CryptoKeysV1;
+  v2?: CryptoKeysV2;
+}
+
+export interface CryptoKeysV1 {
   rsaEncKey: CryptoKey;
   rsaSigKey: CryptoKey;
+}
+
+export interface CryptoKeysV2 {
+  // Don't store the masterKey, only the derived child keys
+  cmdKek: CryptoKey;
+  locationKek: CryptoKey;
+  pictureKek: CryptoKey;
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -23,19 +35,19 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function storeKeys(keys: KeyStore): Promise<void> {
+async function putRecord(record: KeyStoreRecord): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.put(keys, 'current');
+    const request = store.put(record, 'current');
 
     request.onerror = () => reject(new Error(request.error?.message || 'Failed to store keys'));
     request.onsuccess = () => resolve();
   });
 }
 
-export async function getKeys(): Promise<KeyStore | null> {
+async function getRecord(): Promise<KeyStoreRecord> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readonly');
@@ -43,58 +55,30 @@ export async function getKeys(): Promise<KeyStore | null> {
     const request = store.get('current');
 
     request.onerror = () => reject(new Error(request.error?.message || 'Failed to get keys'));
-    request.onsuccess = () => resolve((request.result as KeyStore | undefined) || null);
+    request.onsuccess = () => resolve((request.result as KeyStoreRecord | undefined) || {});
   });
+}
+
+// Separate getters/setters for v1/v2 for easier type conversion from undefined to null
+
+export async function storeKeysV1(keys: CryptoKeysV1): Promise<void> {
+  await putRecord({ v1: keys });
+}
+
+export async function storeKeysV2(keys: CryptoKeysV2): Promise<void> {
+  await putRecord({ v2: keys });
+}
+
+export async function getKeysV1(): Promise<CryptoKeysV1 | null> {
+  const record = await getRecord();
+  return record.v1 ?? null;
+}
+
+export async function getKeysV2(): Promise<CryptoKeysV2 | null> {
+  const record = await getRecord();
+  return record.v2 ?? null;
 }
 
 export async function clearKeys(): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete('current');
-
-    request.onerror = () => reject(new Error(request.error?.message || 'Failed to clear keys'));
-    request.onsuccess = () => resolve();
-  });
-}
-
-// ---- Several devices ----
-//
-// The original store kept one entry under the literal key 'current', which is
-// the whole reason this UI could only ever show one phone. Companions are kept
-// beside it, keyed by account name, so the existing single-device path is
-// untouched and the family view is additive.
-//
-// Each device's private key is still unwrapped from its own password in this
-// browser. The server never sees a plaintext location for any of them.
-
-export async function storeKeysFor(fmdId: string, keys: KeyStore): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const request = transaction.objectStore(STORE_NAME).put(keys, `device:${fmdId}`);
-    request.onerror = () => reject(new Error(request.error?.message || 'Failed to store keys'));
-    request.onsuccess = () => resolve();
-  });
-}
-
-export async function getKeysFor(fmdId: string): Promise<KeyStore | null> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readonly');
-    const request = transaction.objectStore(STORE_NAME).get(`device:${fmdId}`);
-    request.onerror = () => reject(new Error(request.error?.message || 'Failed to get keys'));
-    request.onsuccess = () => resolve((request.result as KeyStore | undefined) || null);
-  });
-}
-
-export async function deleteKeysFor(fmdId: string): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const request = transaction.objectStore(STORE_NAME).delete(`device:${fmdId}`);
-    request.onerror = () => reject(new Error(request.error?.message || 'Failed to delete keys'));
-    request.onsuccess = () => resolve();
-  });
+  await putRecord({});
 }

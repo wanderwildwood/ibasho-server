@@ -1,62 +1,52 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { storeKeys, clearKeys, getKeys, storeKeysFor, getKeysFor, deleteKeysFor } from '@/lib/keystore';
-import type { Location } from '@/lib/api';
-import type { Language } from '@/lib/i18n';
+import {
+  clearKeys,
+  CryptoKeysV2,
+  CryptoKeysV1,
+  storeKeysV2,
+  storeKeysV1,
+  getKeysV1,
+  getKeysV2,
+} from '@/lib/keystore';
+import type { Location, Item } from '@/lib/api';
+import { getInitialLanguage, type Language } from '@/lib/i18n';
+import { CRYPTO_PROTO_V2 } from './crypto';
 
 export type Theme = 'light' | 'dark' | 'system';
 export type UnitSystem = 'metric' | 'imperial';
 export type { Language } from '@/lib/i18n';
 
-interface UserData {
+// Store for sensitive information
+export interface UserData {
   fmdId: string;
   sessionToken: string;
-  rsaEncKey: CryptoKey;
-  rsaSigKey: CryptoKey;
+  keysV1: CryptoKeysV1 | null;
+  keysV2: CryptoKeysV2 | null;
   fingerprint: string;
 }
 
-/**
- * A second, third, ... phone whose location is shown beside your own.
- *
- * Its private key is unwrapped from its own password in this browser, exactly
- * as the primary device's is, so the server still holds nothing it can read.
- * What is kept here is the cost of that: this browser can decrypt every device
- * it has been given, so whoever holds this browser holds the family's map.
- */
-export interface Companion {
-  fmdId: string;
-  label: string;
-  sessionToken: string;
-  rsaEncKey: CryptoKey;
-  rsaSigKey: CryptoKey;
-  /** Latest known position, decrypted here. Null until first fetched. */
-  latest: Location | null;
-}
-
+// Main data store
 interface AppState {
   isLoggedIn: boolean;
+  protoVersion: number;
   userData: UserData | null;
-  companions: Companion[];
   wasAuthRestoreTried: boolean;
+
   theme: Theme;
   units: UnitSystem;
   language: Language;
   pushUrl: string | null;
   isPushUrlLoading: boolean;
 
-  locations: Location[];
+  locations: Item<Location>[];
   currentLocationIndex: number;
   isLocationsLoading: boolean;
 
-  pictures: string[];
+  pictures: Item<string>[];
   isPicturesLoading: boolean;
 
   setUserData: (data: UserData, persistent: boolean) => Promise<void>;
-  addCompanion: (c: Omit<Companion, 'latest'>) => Promise<void>;
-  removeCompanion: (fmdId: string) => Promise<void>;
-  setCompanionLatest: (fmdId: string, latest: Location | null) => void;
-  restoreCompanions: () => Promise<void>;
   logout: () => Promise<void>;
   restoreAuth: () => Promise<void>;
   setTheme: (theme: Theme) => void;
@@ -64,19 +54,18 @@ interface AppState {
 }
 
 const KEY_AUTH = 'fmd-auth';
-const KEY_COMPANIONS = 'fmd-companions';
 const KEY_SETTINGS = 'fmd-settings';
 
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
       isLoggedIn: false,
+      protoVersion: CRYPTO_PROTO_V2,
       userData: null,
-      companions: [],
       wasAuthRestoreTried: false,
       theme: 'system',
       units: 'metric',
-      language: 'en',
+      language: getInitialLanguage(),
       pushUrl: null,
       locations: [],
       currentLocationIndex: 0,
@@ -87,10 +76,12 @@ export const useStore = create<AppState>()(
 
       setUserData: async (data: UserData, persistent: boolean) => {
         if (persistent) {
-          await storeKeys({
-            rsaEncKey: data.rsaEncKey,
-            rsaSigKey: data.rsaSigKey,
-          });
+          if (data.keysV1) {
+            await storeKeysV1(data.keysV1);
+          }
+          if (data.keysV2) {
+            await storeKeysV2(data.keysV2);
+          }
 
           localStorage.setItem(
             KEY_AUTH,
@@ -108,84 +99,11 @@ export const useStore = create<AppState>()(
         });
       },
 
-      addCompanion: async (c) => {
-        await storeKeysFor(c.fmdId, { rsaEncKey: c.rsaEncKey, rsaSigKey: c.rsaSigKey });
-
-        const stored = JSON.parse(localStorage.getItem(KEY_COMPANIONS) || '[]') as Array<{
-          fmdId: string;
-          label: string;
-          sessionToken: string;
-        }>;
-        const others = stored.filter((e) => e.fmdId !== c.fmdId);
-        others.push({ fmdId: c.fmdId, label: c.label, sessionToken: c.sessionToken });
-        localStorage.setItem(KEY_COMPANIONS, JSON.stringify(others));
-
-        set((state) => ({
-          companions: [
-            ...state.companions.filter((x) => x.fmdId !== c.fmdId),
-            { ...c, latest: null },
-          ],
-        }));
-      },
-
-      removeCompanion: async (fmdId: string) => {
-        await deleteKeysFor(fmdId);
-        const stored = JSON.parse(localStorage.getItem(KEY_COMPANIONS) || '[]') as Array<{
-          fmdId: string;
-        }>;
-        localStorage.setItem(
-          KEY_COMPANIONS,
-          JSON.stringify(stored.filter((e) => e.fmdId !== fmdId))
-        );
-        set((state) => ({ companions: state.companions.filter((c) => c.fmdId !== fmdId) }));
-      },
-
-      setCompanionLatest: (fmdId: string, latest: Location | null) => {
-        set((state) => ({
-          companions: state.companions.map((c) => (c.fmdId === fmdId ? { ...c, latest } : c)),
-        }));
-      },
-
-      restoreCompanions: async () => {
-        try {
-          const stored = JSON.parse(localStorage.getItem(KEY_COMPANIONS) || '[]') as Array<{
-            fmdId: string;
-            label: string;
-            sessionToken: string;
-          }>;
-          const restored: Companion[] = [];
-          for (const entry of stored) {
-            const keys = await getKeysFor(entry.fmdId);
-            // A companion whose keys are gone cannot be decrypted, so drop it
-            // rather than show a device that will never report.
-            if (!keys) continue;
-            restored.push({
-              fmdId: entry.fmdId,
-              label: entry.label,
-              sessionToken: entry.sessionToken,
-              rsaEncKey: keys.rsaEncKey,
-              rsaSigKey: keys.rsaSigKey,
-              latest: null,
-            });
-          }
-          set({ companions: restored });
-        } catch {
-          localStorage.removeItem(KEY_COMPANIONS);
-        }
-      },
-
       logout: async () => {
         localStorage.removeItem(KEY_AUTH);
         await clearKeys();
-        // Logging out means logging out: the companions' keys go with it, or
-        // whoever opens this browser next still holds the family's map.
-        for (const c of useStore.getState().companions) {
-          await deleteKeysFor(c.fmdId);
-        }
-        localStorage.removeItem(KEY_COMPANIONS);
         set({
           userData: null,
-          companions: [],
           isLoggedIn: false,
           pushUrl: null,
           locations: [],
@@ -203,15 +121,15 @@ export const useStore = create<AppState>()(
             sessionToken: string;
             fingerprint: string;
           };
-          const keys = await getKeys();
+          const [keysV1, keysV2] = await Promise.all([getKeysV1(), getKeysV2()]);
 
-          if (keys) {
+          if (keysV1 || keysV2) {
             set({
               userData: {
                 fmdId: parsed.fmdId,
                 sessionToken: parsed.sessionToken,
-                rsaEncKey: keys.rsaEncKey,
-                rsaSigKey: keys.rsaSigKey,
+                keysV1: keysV1,
+                keysV2: keysV2,
                 fingerprint: parsed.fingerprint,
               },
               isLoggedIn: true,
@@ -242,11 +160,12 @@ export const useStore = create<AppState>()(
     }),
 
     // Persist some of the state
-    // https://github.com/pmndrs/zustand/blob/main/docs/integrations/persisting-store-data.md
+    // https://github.com/pmndrs/zustand/blob/main/docs/reference/integrations/persisting-store-data.md
     {
       name: KEY_SETTINGS,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        protoVersion: state.protoVersion,
         theme: state.theme,
         units: state.units,
         language: state.language,
