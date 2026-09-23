@@ -41,17 +41,20 @@ export async function install(): Promise<void> {
 // its own in a Chromium browser where there is one, installed normally or as a Flatpak, and
 // in the usual browser where not.
 export function desktopEntry(url: string): string {
+  // The address is single-quoted in the script, so nothing in it is a wildcard, and % is
+  // doubled because it begins the spec's field codes.
+  const u = url.replace(/%/g, '%%');
   // The desktop-entry spec wants the script as one double-quoted argument. Inside it a $
   // must be escaped as \$, and the file format doubles that backslash again, so the file
   // holds \\$ (written '\\\\$' in this source). desktop-file-validate accepts the result.
   const script =
     'for b in brave-browser brave chromium chromium-browser google-chrome ' +
     'google-chrome-stable microsoft-edge vivaldi; do command -v \\\\$b >/dev/null 2>&1 && ' +
-    `exec \\\\$b --app=${url}; done; ` +
+    `exec \\\\$b --app='${u}'; done; ` +
     // The same browsers installed as Flatpaks, which is how Mint and friends often carry them.
     'for f in com.brave.Browser com.google.Chrome org.chromium.Chromium com.microsoft.Edge ' +
     'com.vivaldi.Vivaldi; do flatpak info \\\\$f >/dev/null 2>&1 && ' +
-    `exec flatpak run \\\\$f --app=${url}; done; exec xdg-open ${url}`;
+    `exec flatpak run \\\\$f --app='${u}'; done; exec xdg-open '${u}'`;
   const exec = `sh -c "${script}"`;
   return [
     '[Desktop Entry]',
