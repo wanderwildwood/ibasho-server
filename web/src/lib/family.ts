@@ -16,27 +16,42 @@ import {
   deriveKeks,
 } from '@/lib/cryptov2';
 import type { CryptoKeysV1, CryptoKeysV2 } from '@/lib/keystore';
+import { useStore } from '@/lib/store';
 
 // The other devices on the map: accounts on this same server whose owners gave you their
 // password. Nothing here touches the main login. Each device keeps its own session and keys,
 // and a device whose session runs out logs itself back in; it never logs you out.
 //
-// What is kept, per device:
-// - in localStorage, the name to show, the account id and its protocol version;
-// - in IndexedDB, its keys (non-extractable CryptoKeys, as upstream stores the main account's),
-//   its session token, and the proof the server asks for at log-in. The proof is the
-//   password *hash*, never the password, so a stored device cannot be used to read the
-//   password back.
+// The list outlives a log-out, but locked. It is kept in localStorage under your account's
+// name, encrypted with a key made from *your* password, and it holds each device's name, id
+// and password: the password because it is the only thing that can rebuild a device's keys
+// once they have been thrown away. Logging out, or a session running out, drops the key and
+// the working copies; logging back in makes the key again and brings the devices back without
+// asking for them. Someone else logging in on the same browser has a different name and a
+// different password, and cannot open it. Deleting your account deletes it.
+//
+// While unlocked, each device's keys (non-extractable CryptoKeys, as upstream keeps the main
+// account's), session token and log-in proof sit in IndexedDB, so the map does not re-derive
+// them on every visit. The proof is the password hash the server checks at log-in; a session
+// that runs out is renewed with it, without touching the password.
 
-const LIST_KEY = 'ibasho-family';
+const BUNDLE_PREFIX = 'ibasho-family:';
+const LEGACY_LIST_KEY = 'ibasho-family';
 const DB_NAME = 'ibasho-family';
 const STORE_NAME = 'devices';
+const WRAP_STORE = 'wrap';
 const ONE_WEEK_SECONDS = 7 * 24 * 60 * 60;
+// Deliberately slow: this is the lock on a list of other people's passwords.
+const PBKDF2_ITERATIONS = 600_000;
 
 export interface FamilyDevice {
   fmdId: string;
   name: string;
   protoVersion: number;
+}
+
+interface StoredDevice extends FamilyDevice {
+  password: string;
 }
 
 interface DeviceSecrets {
@@ -60,29 +75,169 @@ export interface DeviceStatus {
 
 interface FamilyState {
   devices: FamilyDevice[];
+  // True until the list has been opened with your password (or your remembered key).
+  locked: boolean;
+  // A remembered session with no remembered key, from before lists were kept: only logging
+  // in again, with the password, can open the list.
+  needsLogin: boolean;
   status: Record<string, DeviceStatus>;
   // Set when a device is picked in the list; the map pans to it.
   focus: { fmdId: string; at: number } | null;
 }
 
 export const useFamily = create<FamilyState>()(() => ({
-  devices: readList(),
+  devices: [],
+  locked: true,
+  needsLogin: false,
   status: {},
   focus: null,
 }));
 
-function readList(): FamilyDevice[] {
+// Whose list is open, the key that opens it, and the list itself. Memory only.
+let owner: string | null = null;
+let wrapKey: CryptoKey | null = null;
+let stored: StoredDevice[] = [];
+// Set while the login form is opening the list, so a restore that finds no key meanwhile
+// does not report the list as out of reach.
+let unlocking = false;
+
+function readList(): StoredDevice[] {
+  return stored;
+}
+
+async function writeList(next: StoredDevice[]) {
+  if (!owner || !wrapKey) throw new Error('Log in again first, so the list can be kept locked');
+  localStorage.setItem(BUNDLE_PREFIX + owner, await seal(wrapKey, owner, next));
+  stored = next;
+  useFamily.setState({ devices: next.map(({ password: _, ...d }) => d) });
+}
+
+// --- The lock -------------------------------------------------------------------------------
+
+const enc = new TextEncoder();
+
+async function deriveWrapKey(fmdId: string, password: string): Promise<CryptoKey> {
+  const base = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
+    'deriveKey',
+  ]);
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: enc.encode('whereabouts-family|' + fmdId),
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    base,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+// The owner's name is bound in as associated data, so a list cannot be moved between names.
+async function seal(key: CryptoKey, fmdId: string, list: StoredDevice[]): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: enc.encode(fmdId) },
+    key,
+    enc.encode(JSON.stringify(list))
+  );
+  return base64Encode(new Uint8Array([...iv, ...new Uint8Array(ct)]));
+}
+
+async function unseal(key: CryptoKey, fmdId: string, sealed: string): Promise<StoredDevice[]> {
+  const bytes = Uint8Array.from(atob(sealed), (c) => c.charCodeAt(0));
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: bytes.slice(0, 12), additionalData: enc.encode(fmdId) },
+    key,
+    bytes.slice(12)
+  );
+  return JSON.parse(new TextDecoder().decode(plain)) as StoredDevice[];
+}
+
+async function openList(fmdId: string, key: CryptoKey) {
+  owner = fmdId;
+  wrapKey = key;
+
+  const sealed = localStorage.getItem(BUNDLE_PREFIX + fmdId);
+  let list: StoredDevice[] = [];
+  if (sealed) {
+    try {
+      list = await unseal(key, fmdId, sealed);
+    } catch {
+      // Your password has changed since the list was sealed. It stays where it is, unread,
+      // rather than being thrown away on a guess.
+      list = [];
+    }
+  }
+  // An earlier version kept a plain list, without passwords. Its devices come across and keep
+  // working on the keys already in this browser; once those are gone, each asks for its
+  // password one time, and from then on is kept like the rest.
+  const legacy = readLegacyList().filter((d) => !list.some((l) => l.fmdId === d.fmdId));
+  stored = [...list, ...legacy.map((d) => ({ ...d, password: '' }))];
+  if (legacy.length > 0)
+    localStorage.setItem(BUNDLE_PREFIX + fmdId, await seal(key, fmdId, stored));
+  localStorage.removeItem(LEGACY_LIST_KEY);
+  list = stored;
+
+  useFamily.setState({
+    devices: list.map(({ password: _, ...d }) => d),
+    locked: false,
+    needsLogin: false,
+  });
+  await refreshAll();
+}
+
+function readLegacyList(): FamilyDevice[] {
   try {
-    const raw = localStorage.getItem(LIST_KEY);
+    const raw = localStorage.getItem(LEGACY_LIST_KEY);
     return raw ? (JSON.parse(raw) as FamilyDevice[]) : [];
   } catch {
     return [];
   }
 }
 
-function writeList(devices: FamilyDevice[]) {
-  localStorage.setItem(LIST_KEY, JSON.stringify(devices));
-  useFamily.setState({ devices });
+/** Called by the login form, which is the one place your password is in hand. */
+export async function unlockFamily(fmdId: string, password: string, remember: boolean) {
+  unlocking = true;
+  try {
+    const key = await deriveWrapKey(fmdId, password);
+    if (remember) {
+      await withStore<void>('readwrite', (s) => s.put(key, fmdId), WRAP_STORE);
+    }
+    await openList(fmdId, key);
+  } finally {
+    unlocking = false;
+  }
+}
+
+/** A remembered session comes back without a password; its remembered key opens the list. */
+async function restoreFamily(fmdId: string) {
+  if (owner === fmdId && wrapKey) return;
+  const key = await withStore<CryptoKey | undefined>('readonly', (s) => s.get(fmdId), WRAP_STORE);
+  if (key) await openList(fmdId, key);
+  else if (!unlocking) useFamily.setState({ needsLogin: true });
+}
+
+/** Logged out, or the session ran out: keep the sealed list, drop everything that opens it. */
+export async function lockFamily() {
+  owner = null;
+  wrapKey = null;
+  stored = [];
+  useFamily.setState({ devices: [], status: {}, focus: null, locked: true, needsLogin: false });
+  await withStore<void>('readwrite', (s) => s.clear(), WRAP_STORE);
+  await clearSecrets();
+}
+
+// Follow the main login: open the list when someone is logged in, lock it when they are not.
+useStore.subscribe((state, prev) => {
+  const id = state.userData?.fmdId;
+  if (id && id !== prev.userData?.fmdId) void restoreFamily(id);
+  if (prev.isLoggedIn && !state.isLoggedIn) void lockFamily();
+});
+{
+  const id = useStore.getState().userData?.fmdId;
+  if (id) void restoreFamily(id);
 }
 
 const NO_STATUS: DeviceStatus = {
@@ -103,12 +258,15 @@ function setStatus(fmdId: string, patch: Partial<DeviceStatus>) {
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 2);
     request.onerror = () => reject(new Error(request.error?.message || 'Failed to open database'));
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(STORE_NAME)) {
         request.result.createObjectStore(STORE_NAME);
+      }
+      if (!request.result.objectStoreNames.contains(WRAP_STORE)) {
+        request.result.createObjectStore(WRAP_STORE);
       }
     };
   });
@@ -116,11 +274,12 @@ function openDB(): Promise<IDBDatabase> {
 
 async function withStore<T>(
   mode: IDBTransactionMode,
-  op: (store: IDBObjectStore) => IDBRequest
+  op: (store: IDBObjectStore) => IDBRequest,
+  storeName: string = STORE_NAME
 ): Promise<T> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const request = op(db.transaction(STORE_NAME, mode).objectStore(STORE_NAME));
+    const request = op(db.transaction(storeName, mode).objectStore(storeName));
     request.onerror = () => reject(new Error(request.error?.message || 'Key storage failed'));
     request.onsuccess = () => resolve(request.result as T);
   });
@@ -267,11 +426,12 @@ async function logIn(
 
 export async function addDevice(fmdId: string, password: string, name: string): Promise<void> {
   fmdId = fmdId.trim();
+  if (!wrapKey) throw new Error('Log in again first, so the list can be kept locked');
   if (readList().some((d) => d.fmdId === fmdId)) throw new Error('That device is already here');
 
   const { protoVersion, secrets } = await logIn(fmdId, password);
   await putSecrets(fmdId, secrets);
-  writeList([...readList(), { fmdId, name: name.trim() || fmdId, protoVersion }]);
+  await writeList([...readList(), { fmdId, name: name.trim() || fmdId, protoVersion, password }]);
   await refreshDevice(fmdId);
 }
 
@@ -280,14 +440,16 @@ export async function addDevice(fmdId: string, password: string, name: string): 
 export async function reenterPassword(fmdId: string, password: string): Promise<void> {
   const { protoVersion, secrets } = await logIn(fmdId, password);
   await putSecrets(fmdId, secrets);
-  writeList(readList().map((d) => (d.fmdId === fmdId ? { ...d, protoVersion } : d)));
+  await writeList(
+    readList().map((d) => (d.fmdId === fmdId ? { ...d, protoVersion, password } : d))
+  );
   setStatus(fmdId, { needsPassword: false, error: null });
   await refreshDevice(fmdId);
 }
 
 export async function removeDevice(fmdId: string): Promise<void> {
   await deleteSecrets(fmdId);
-  writeList(readList().filter((d) => d.fmdId !== fmdId));
+  await writeList(readList().filter((d) => d.fmdId !== fmdId));
   useFamily.setState((s) => {
     const status = { ...s.status };
     delete status[fmdId];
@@ -295,11 +457,10 @@ export async function removeDevice(fmdId: string): Promise<void> {
   });
 }
 
-// On an explicit log-out, forget every device too.
-export async function forgetAllDevices(): Promise<void> {
-  localStorage.removeItem(LIST_KEY);
-  await clearSecrets();
-  useFamily.setState({ devices: [], status: {}, focus: null });
+// Deleting your account deletes your list with it. A log-out only locks it.
+export async function forgetAllDevices(fmdId: string): Promise<void> {
+  localStorage.removeItem(BUNDLE_PREFIX + fmdId);
+  await lockFamily();
 }
 
 export function focusDevice(fmdId: string) {
@@ -354,8 +515,18 @@ export async function refreshDevice(fmdId: string): Promise<void> {
 
   setStatus(fmdId, { loading: true });
   try {
-    const secrets = await getSecrets(fmdId);
-    if (!secrets) throw new Error('Keys missing from this browser');
+    let secrets = await getSecrets(fmdId);
+    if (!secrets) {
+      // Brought across from the old plain list with no password: ask, rather than send an
+      // empty one, which the server would count towards locking the account.
+      if (!device.password) {
+        setStatus(fmdId, { needsPassword: true, error: 'Password needed', loading: false });
+        return;
+      }
+      // Locked and opened again: the keys were thrown away, and the password rebuilds them.
+      secrets = (await logIn(fmdId, device.password)).secrets;
+      await putSecrets(fmdId, secrets);
+    }
 
     const fetchLatest = (token: string) =>
       device.protoVersion === CRYPTO_PROTO_V2

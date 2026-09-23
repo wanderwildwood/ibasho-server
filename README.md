@@ -18,10 +18,13 @@ was last seen and its battery. The password is the consent: someone who gives yo
 is choosing to be on your map, and can leave it by changing it.
 
 Each added device keeps its own session and keys in your browser, apart from your own
-login. What is kept is the password *hash* the server asks for at log-in, never the
-password, so an expired session can renew itself. If the hash is refused, the password has
-changed: the page asks for the new one and stops trying, because the server locks an
-account after a handful of failures. Logging out forgets every added device.
+login, and an expired session renews itself. The list of devices, their passwords
+included, is kept in the browser encrypted with a key made from *your* password: logging
+out locks it, and logging back in opens it again, so nothing has to be re-entered.
+Someone else logging in on the same browser cannot open it. If a device's password is
+refused, it has changed: the page asks for the new one and stops trying, because the
+server locks an account after a handful of failures. Deleting your account deletes the
+list.
 
 **An iPhone, through Overland.** There is no iPhone version of Whereabouts. Instead, an
 iPhone runs [Overland](https://overland.p3k.app/) and posts its location to the small

@@ -186,6 +186,7 @@ const AddDeviceForm = ({ onDone }: { onDone: () => void }) => {
 export const FamilyPanel = () => {
   const { t } = useTranslation('dashboard');
   const devices = useFamily((s) => s.devices);
+  const needsLogin = useFamily((s) => s.needsLogin);
   const anyLoading = useFamily((s) => Object.values(s.status).some((d) => d.loading));
   const [adding, setAdding] = useState(false);
 
@@ -236,7 +237,9 @@ export const FamilyPanel = () => {
       </div>
 
       {devices.length === 0 && !adding && (
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('family.empty')}</p>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          {needsLogin ? t('family.locked') : t('family.empty')}
+        </p>
       )}
 
       {devices.length > 0 && (

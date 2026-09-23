@@ -14,6 +14,7 @@ import { WebCryptoWarningModal } from './modals/WebCryptoWarningModal';
 import { LanguageNativeSelect } from './LanguageNativeSelect';
 import { ApiV2Service } from '@/lib/apiv2';
 import { useStore } from '@/lib/store';
+import { unlockFamily } from '@/lib/family';
 
 const SLOW_LOGIN_THRESHOLD_MS = 10_000;
 const SLOW_LOGIN_TOAST_DURATION_MS = 30_000;
@@ -101,6 +102,9 @@ export const LoginForm = () => {
       clearTimeout(timeOut);
 
       await apiService().login(fmdId, password, passwordHash, rememberMe);
+      // The one moment your password is in hand: it unlocks the list of other devices, which
+      // stays sealed in this browser between log-ins.
+      await unlockFamily(fmdId, password, rememberMe);
     } catch (error) {
       if (error instanceof ApiError && error.status == 404) {
         toast.error(t('errors:account_not_found'));

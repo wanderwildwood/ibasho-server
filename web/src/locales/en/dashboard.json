@@ -27,7 +27,7 @@
     "name": "Name to show",
     "fmd_id": "Its FMD ID",
     "password": "Its password",
-    "add_hint": "Its keys stay in this browser. Logging out forgets every device here.",
+    "add_hint": "Kept in this browser, locked with your own password: log out and back in, and they are still here.",
     "add": "Add",
     "cancel": "Cancel",
     "add_failed": "Could not add the device",
@@ -42,6 +42,7 @@
     "log_in": "Log in",
     "remove": "Remove",
     "remove_title": "Remove {{name}}?",
-    "remove_message": "It leaves this map and its keys leave this browser. Nothing on the device or the server changes."
+    "remove_message": "It leaves this map and its keys leave this browser. Nothing on the device or the server changes.",
+    "locked": "Log out and in again once, and the devices you add will be kept between log-ins."
   }
 }

@@ -287,8 +287,8 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
             try {
               await apiService().deleteAccount();
+              await forgetAllDevices(userData.fmdId);
               await logout();
-              await forgetAllDevices();
               setShowDeleteAccountConfirm(false);
               onClose();
             } catch (error) {
