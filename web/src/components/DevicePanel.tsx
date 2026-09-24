@@ -26,6 +26,7 @@ import { ActionGroup } from '@/components/ActionGroup';
 import { BatteryIndicator } from '@/components/BatteryIndicator';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { FactoryResetModal } from './modals/FactoryResetModal';
 import { LockMessageModal } from './modals/LockMessageModal';
 
 // Across this file and the UI, commands are ordered by perceived importance.
@@ -87,6 +88,7 @@ export const DevicePanel = ({ onLocateCommand }: DevicePanelProps) => {
   const { t: tDashboard } = useTranslation('dashboard');
   const { t: tError } = useTranslation('errors');
   const [loading, setLoading] = useState(false);
+  const [showFactoryResetConfirm, setShowFactoryResetConfirm] = useState(false);
   const [showLockMessageConfirm, setShowLockMessageConfirm] = useState(false);
 
   useEffect(() => {
@@ -187,7 +189,13 @@ export const DevicePanel = ({ onLocateCommand }: DevicePanelProps) => {
       description: tCommands('lock.description'),
       onClick: () => setShowLockMessageConfirm(true),
     },
-    // No factory reset: Whereabouts removed wipe, and refuses it even if asked.
+    {
+      icon: Trash2,
+      title: tCommands('factory_reset.title'),
+      description: tCommands('factory_reset.description'),
+      onClick: () => setShowFactoryResetConfirm(true),
+      variant: 'destructive' as const,
+    },
   ];
 
   const groupGeneral = {
@@ -430,6 +438,12 @@ export const DevicePanel = ({ onLocateCommand }: DevicePanelProps) => {
           </div>
         ))}
       </div>
+
+      <FactoryResetModal
+        isOpen={showFactoryResetConfirm}
+        onClose={() => setShowFactoryResetConfirm(false)}
+        executeCommand={(cmd, base) => void executeCommand(cmd, base)}
+      />
 
       <LockMessageModal
         isOpen={showLockMessageConfirm}
