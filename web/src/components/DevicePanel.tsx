@@ -21,6 +21,7 @@ import {
   Bell,
   BellOff,
   Vibrate,
+  MapPin,
 } from 'lucide-react';
 import { ActionGroup } from '@/components/ActionGroup';
 import { BatteryIndicator } from '@/components/BatteryIndicator';
@@ -367,6 +368,16 @@ export const DevicePanel = ({ onLocateCommand }: DevicePanelProps) => {
                 </Button>
               )}
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full font-semibold"
+              onClick={() => useStore.setState({ ownFocusAt: Date.now() })}
+            >
+              <MapPin className="h-4 w-4" />
+              {tDashboard('location.show_on_map')}
+            </Button>
 
             {locations.length > 1 && (
               <div className="flex gap-2">

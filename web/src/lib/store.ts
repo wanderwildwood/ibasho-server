@@ -41,6 +41,8 @@ interface AppState {
 
   locations: Item<Location>[];
   currentLocationIndex: number;
+  // Set by "Show on the map"; the map pans back to this device's shown location.
+  ownFocusAt: number;
   isLocationsLoading: boolean;
 
   pictures: Item<string>[];
@@ -69,6 +71,7 @@ export const useStore = create<AppState>()(
       pushUrl: null,
       locations: [],
       currentLocationIndex: 0,
+      ownFocusAt: 0,
       pictures: [],
       isPushUrlLoading: false,
       isLocationsLoading: false,

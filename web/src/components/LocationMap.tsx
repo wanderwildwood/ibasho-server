@@ -48,7 +48,7 @@ const calculateZoomLevel = (accuracy?: number): number => {
 };
 
 export const LocationMap = () => {
-  const { locations, units, currentLocationIndex, isLocationsLoading } = useStore();
+  const { locations, units, currentLocationIndex, isLocationsLoading, ownFocusAt } = useStore();
   const familyDevices = useFamily((s) => s.devices);
   const familyStatus = useFamily((s) => s.status);
   const familyFocus = useFamily((s) => s.focus);
@@ -365,6 +365,18 @@ export const LocationMap = () => {
     );
     marker.openPopup();
   }, [familyFocus]);
+
+  // "Show on the map" brings this device back into view.
+  useEffect(() => {
+    if (!ownFocusAt || !mapInstanceRef.current) return;
+    const location = locations[currentLocationIndex]?.item;
+    if (!location) return;
+    mapInstanceRef.current.setView(
+      [location.lat, location.lon],
+      Math.max(mapInstanceRef.current.getZoom(), calculateZoomLevel(location.accuracy))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownFocusAt]);
 
   return (
     <div className="bg-fmd-light dark:bg-fmd-dark relative flex h-full w-full flex-col rounded-lg">
