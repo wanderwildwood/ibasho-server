@@ -11,13 +11,12 @@ import 'leaflet/dist/leaflet.css';
 import { apiService } from '@/lib/apiService';
 import { useFamily } from '@/lib/family';
 
-const POLYLINE_OPACITY = 0.6;
-const POLYLINE_WEIGHT = 3;
+// The trail through the fixes stepped to is a faint line; only the shown fix gets a pin.
+const POLYLINE_OPACITY = 0.35;
+const POLYLINE_WEIGHT = 2;
 
 const CIRCLE_FILL_OPACITY = 0.25;
 const CIRCLE_WEIGHT = 0;
-
-const ACCURACY_CIRCLE_RANGE = 5;
 
 const formatProvider = (provider: string): string => {
   const providerMap: Record<string, string> = {
@@ -69,6 +68,7 @@ export const LocationMap = () => {
   const familyFittedRef = useRef(false);
 
   const locationCacheRef = useRef<Set<number>>(new Set());
+  const lastOwnFocusRef = useRef(0);
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
 
   const { mapPrimaryColor, mapAccentColor } = useThemeColors();
@@ -197,6 +197,13 @@ export const LocationMap = () => {
 
     const { lat, lon } = location;
 
+    // "Latest" starts the trail over and always re-centres, even if the fix is already shown.
+    const focusRequested = ownFocusAt !== lastOwnFocusRef.current;
+    if (focusRequested) {
+      lastOwnFocusRef.current = ownFocusAt;
+      locationCacheRef.current.clear();
+    }
+
     locationCacheRef.current.add(currentLocationIndex);
 
     const cachedIndices = Array.from(locationCacheRef.current)
@@ -222,62 +229,49 @@ export const LocationMap = () => {
         .addTo(mapInstanceRef.current);
     }
 
-    for (let i = 0; i < cachedIndices.length; i++) {
-      const idx = cachedIndices[i];
-      const loc = cachedLocations[i];
-      const isCurrentLocation = idx === currentLocationIndex;
+    const loc = location;
+    const marker = leafletRef.current
+      .marker(
+        [loc.lat, loc.lon],
+        selectedIconRef.current ? { icon: selectedIconRef.current, zIndexOffset: 1000 } : {}
+      )
+      .addTo(markersLayerRef.current)
+      .bindPopup(
+        `
+      <div style="min-width: 5rem;">
+        <strong>${t('time')}:</strong> ${new Date(loc.date).toLocaleString()}<br/>
+        <strong>${t('battery')}:</strong> ${loc.bat}%<br/>
+        <strong>${t('provider')}:</strong> ${formatProvider(loc.provider)}<br/>
+        ${loc.accuracy ? `<strong>${t('accuracy')}:</strong> ${convertDistance(loc.accuracy, units)}<br/>` : ''}
+        ${loc.altitude !== undefined ? `<strong>${t('altitude')}:</strong> ${convertDistance(loc.altitude, units)}<br/>` : ''}
+        ${loc.speed !== undefined ? `<strong>${t('speed')}:</strong> ${convertSpeed(loc.speed, units)}<br/>` : ''}
+        ${loc.bearing !== undefined ? `<strong>${t('bearing')}:</strong> ${loc.bearing.toFixed(0)}°` : ''}
+      </div>
+    `,
+        { autoClose: false, closeOnClick: false, closeButton: false }
+      );
 
-      const marker = leafletRef.current
-        .marker(
-          [loc.lat, loc.lon],
-          isCurrentLocation && selectedIconRef.current
-            ? { icon: selectedIconRef.current, zIndexOffset: 1000 }
-            : {}
-        )
-        .addTo(markersLayerRef.current)
-        .bindPopup(
-          `
-        <div style="min-width: 5rem;">
-          <strong>${t('time')}:</strong> ${new Date(loc.date).toLocaleString()}<br/>
-          <strong>${t('battery')}:</strong> ${loc.bat}%<br/>
-          <strong>${t('provider')}:</strong> ${formatProvider(loc.provider)}<br/>
-          ${loc.accuracy ? `<strong>${t('accuracy')}:</strong> ${convertDistance(loc.accuracy, units)}<br/>` : ''}
-          ${loc.altitude !== undefined ? `<strong>${t('altitude')}:</strong> ${convertDistance(loc.altitude, units)}<br/>` : ''}
-          ${loc.speed !== undefined ? `<strong>${t('speed')}:</strong> ${convertSpeed(loc.speed, units)}<br/>` : ''}
-          ${loc.bearing !== undefined ? `<strong>${t('bearing')}:</strong> ${loc.bearing.toFixed(0)}°` : ''}
-        </div>
-      `,
-          { autoClose: false, closeOnClick: false, closeButton: false }
-        );
+    marker.on('mouseover', () => {
+      marker.openPopup();
+    });
+    marker.on('mouseout', () => {
+      marker.closePopup();
+    });
 
-      marker.on('mouseover', () => {
-        marker.openPopup();
-      });
-      marker.on('mouseout', () => {
-        marker.closePopup();
-      });
-
-      // show accuracy circles only for locations within ACCURACY_CIRCLE_RANGE of current
-      if (
-        loc.accuracy &&
-        idx >= currentLocationIndex - ACCURACY_CIRCLE_RANGE &&
-        idx <= currentLocationIndex + ACCURACY_CIRCLE_RANGE
-      ) {
-        const circleColor = isCurrentLocation ? mapAccentColor : mapPrimaryColor;
-
-        leafletRef.current
-          .circle([loc.lat, loc.lon], {
-            radius: loc.accuracy,
-            color: circleColor,
-            fillColor: circleColor,
-            fillOpacity: CIRCLE_FILL_OPACITY,
-            weight: CIRCLE_WEIGHT,
-          })
-          .addTo(accuracyCirclesLayerRef.current);
-      }
+    if (loc.accuracy) {
+      leafletRef.current
+        .circle([loc.lat, loc.lon], {
+          radius: loc.accuracy,
+          color: mapAccentColor,
+          fillColor: mapAccentColor,
+          fillOpacity: CIRCLE_FILL_OPACITY,
+          weight: CIRCLE_WEIGHT,
+        })
+        .addTo(accuracyCirclesLayerRef.current);
     }
 
     const locationChanged =
+      focusRequested ||
       lastLocationRef.current === null ||
       lastLocationRef.current.lat !== lat ||
       lastLocationRef.current.lon !== lon;
@@ -291,7 +285,15 @@ export const LocationMap = () => {
       }
       lastLocationRef.current = { lat, lon };
     }
-  }, [currentLocationIndex, units, locations, mapPrimaryColor, mapAccentColor, mapReady]);
+  }, [
+    currentLocationIndex,
+    units,
+    locations,
+    mapPrimaryColor,
+    mapAccentColor,
+    mapReady,
+    ownFocusAt,
+  ]);
 
   // The other devices: one named dot each, at its latest fix.
   useEffect(() => {
@@ -365,18 +367,6 @@ export const LocationMap = () => {
     );
     marker.openPopup();
   }, [familyFocus]);
-
-  // "Show on the map" brings this device back into view.
-  useEffect(() => {
-    if (!ownFocusAt || !mapInstanceRef.current) return;
-    const location = locations[currentLocationIndex]?.item;
-    if (!location) return;
-    mapInstanceRef.current.setView(
-      [location.lat, location.lon],
-      Math.max(mapInstanceRef.current.getZoom(), calculateZoomLevel(location.accuracy))
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownFocusAt]);
 
   return (
     <div className="bg-fmd-light dark:bg-fmd-dark relative flex h-full w-full flex-col rounded-lg">

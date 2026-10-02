@@ -373,10 +373,15 @@ export const DevicePanel = ({ onLocateCommand }: DevicePanelProps) => {
               variant="outline"
               size="sm"
               className="w-full font-semibold"
-              onClick={() => useStore.setState({ ownFocusAt: Date.now() })}
+              onClick={() =>
+                useStore.setState({
+                  currentLocationIndex: locations.length - 1,
+                  ownFocusAt: Date.now(),
+                })
+              }
             >
               <MapPin className="h-4 w-4" />
-              {tDashboard('location.show_on_map')}
+              {tDashboard('location.latest')}
             </Button>
 
             {locations.length > 1 && (

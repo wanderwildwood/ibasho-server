@@ -41,7 +41,7 @@ interface AppState {
 
   locations: Item<Location>[];
   currentLocationIndex: number;
-  // Set by "Show on the map"; the map pans back to this device's shown location.
+  // Set by "Latest"; the map goes back to this device's newest location.
   ownFocusAt: number;
   isLocationsLoading: boolean;
 
