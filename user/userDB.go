@@ -35,6 +35,11 @@ type FMDUser struct {
 
 	Messages []Message `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE;"`
 
+	// Family sharing. The server stores these and cannot read the private half.
+	IdentityPublic     string // base64 of the uncompressed P-256 point (65 bytes)
+	IdentityEncPrivate string // base64 of the PKCS#8 private key, encrypted on the client
+	SharingPaused      bool
+
 	// Deprecated crypto protocol v1
 	PrivateKey    string
 	PublicKey     string

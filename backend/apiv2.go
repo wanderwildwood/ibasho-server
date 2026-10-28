@@ -50,6 +50,14 @@ func buildApiV2Mux(config *viper.Viper) *http.ServeMux {
 	auth("DELETE /data/{type}/all", deleteAllData2)
 	auth("DELETE /data/{type}/{id}", deleteSingleDatum2)
 
+	// Family sharing: identity key, the people list, the pause switch, sealed last-known places
+	auth("GET /account/identity", getIdentity2)
+	auth("POST /account/identity", postIdentity2)
+	auth("GET /family", getFamily2)
+	auth("POST /family/pause", postFamilyPause2)
+	auth("GET /family/locations", getFamilyLocations2)
+	auth("POST /family/locations", postFamilyLocations2)
+
 	// Server messages
 	auth("GET /messages", getMessages2)
 	auth("DELETE /messages/{id}", deleteMessage2)
