@@ -19,6 +19,7 @@ interface HeaderProps {
 export const Header = ({ onSettingsClick, onAccountInfoClick }: HeaderProps) => {
   const { userData, logout } = useStore();
   const { t } = useTranslation('common');
+  const { t: tDash } = useTranslation('dashboard');
 
   return (
     <header className="dark:bg-fmd-dark flex items-center justify-between border-b border-gray-200 bg-white px-4 py-4 dark:border-gray-800">
@@ -28,6 +29,9 @@ export const Header = ({ onSettingsClick, onAccountInfoClick }: HeaderProps) => 
       </Link>
       {userData && (
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/people">{tDash('people.link')}</Link>
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

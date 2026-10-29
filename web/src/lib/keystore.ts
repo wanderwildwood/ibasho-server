@@ -17,6 +17,8 @@ export interface CryptoKeysV2 {
   cmdKek: CryptoKey;
   locationKek: CryptoKey;
   pictureKek: CryptoKey;
+  // Wraps this account's identity key. Missing in a session kept from before family sharing.
+  identityKek?: CryptoKey;
 }
 
 function openDB(): Promise<IDBDatabase> {

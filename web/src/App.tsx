@@ -6,6 +6,7 @@ import { Spinner } from '@/components/ui/spinner';
 // These must be declared as "export default"!
 const Home = lazy(() => import('@/components/Home'));
 const PrivacyContent = lazy(() => import('@/components/PrivacyContent'));
+const PeoplePage = lazy(() => import('@/components/PeoplePage'));
 const NotFound = lazy(() => import('@/components/NotFound'));
 
 const App = () => (
@@ -18,6 +19,7 @@ const App = () => (
   >
     <Routes>
       <Route index element={<Home />} />
+      <Route path="people" element={<PeoplePage />} />
       <Route path="privacy" element={<PrivacyContent />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

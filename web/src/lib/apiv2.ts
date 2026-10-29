@@ -7,6 +7,7 @@ import {
   deriveKeks,
   encryptDataV2,
 } from './cryptov2';
+import { deriveIdentityKek } from './familycrypto';
 import { CryptoKeysV2 } from './keystore';
 import { UserData, useStore } from './store';
 
@@ -85,6 +86,7 @@ export class ApiV2Service extends BaseApiService {
       response.encMasterKey64
     );
     const [cmdKek, locationKek, pictureKek] = await deriveKeks(username, masterKey);
+    const identityKek = await deriveIdentityKek(username, masterKey);
 
     // Store everything
     const { setUserData } = useStore.getState();
@@ -93,6 +95,7 @@ export class ApiV2Service extends BaseApiService {
       cmdKek,
       locationKek,
       pictureKek,
+      identityKek,
     };
 
     const data: UserData = {

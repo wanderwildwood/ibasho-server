@@ -45,5 +45,21 @@
     "remove_title": "Remove {{name}}?",
     "remove_message": "It leaves this map and its keys leave this browser. Nothing on the device or the server changes.",
     "locked": "Log out and in again once, and the devices you add will be kept between log-ins."
+  },
+  "people": {
+    "title": "People",
+    "back": "Back to my device",
+    "refresh": "Look again",
+    "empty": "No one else has an account on this server yet.",
+    "none": "Has not shared a place yet",
+    "paused": "Sharing is paused",
+    "not_set_up": "Has not opened Whereabouts since sharing began",
+    "unreadable": "Could not be read; they may need to open Whereabouts again",
+    "log_in_again": "Log out and in again once, so this browser can open what people share with you.",
+    "pause": "Pause my sharing",
+    "pause_on": "No one can see where you were last.",
+    "pause_off": "Everyone on this server sees where you were last.",
+    "failed": "Could not change that",
+    "link": "People"
   }
 }

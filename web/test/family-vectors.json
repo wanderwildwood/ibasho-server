@@ -1,0 +1,12 @@
+{
+  "note": "Made by web/src/lib/familycrypto.ts. bob is the viewer; alice sealed this place for him.",
+  "username": "bob",
+  "masterKey64": "18YCrJIfkQNUHbbhDmyTTv7kYddzwLMpRqiz8ZZ19C4=",
+  "encPrivate64": "zwHglcb8bYW0R+x53ktdAIzNJuO0OR8oawymAj4qD7NvqTJ0NQga7P+qtCONmBlSFMCmzMYqDzJcwBTnY7wvDwcBcYiadT2P4W9HMiMW8n52aD6xC+V0yB+gsZoyzT8b0GYsHL+Ifb1OB+cv7Y8/gAKnIXu/7QyDRjg9G4U=",
+  "publicKey64": "BHoFcruLNY4M9ZePhsyAzN8HKcv/NorgBM6Bsxi4or5rgSjtn8D6H4oYWAbRyvsrSYAw9DgmqijtPVfIiGBdqfI=",
+  "owner": "alice",
+  "ownerPublic64": "BNKTPH10xqhWhxHCABy50j6f5QjyfEyeTXZCsTHHJ8tilq7531sm6U5B04J6QTiyNsMBispTQEF89V8Xj8JI550=",
+  "unixMillis": 1700000000123,
+  "sealed64": "AQQDl4k2uzAqQ2On1wffk+sqHKsL2rZV/nB88lZ1xdzBPER+ax4th/tpDC58cgAzYW1J1U7Gzln7lzx33exD7Ynn5/obWqWslNrktgbgwAOqiG9AgLdYyiIEsNuPLQS8OjRdD4lpa1NXdh6ksTjQyPCbUjUjmaCygKCVZc8MJ2k0F5+UhTo6RnacrBByfPMjD6vklFYlaDQJq1b1nm8yFjJqOBOGRbhCGEocLFOck4pn6Zo=",
+  "plaintext": "{\"provider\":\"gps\",\"lat\":12.5,\"lon\":-45.25,\"accuracy\":8,\"bat\":71,\"date\":1700000000000}"
+}
