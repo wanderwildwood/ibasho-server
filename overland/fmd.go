@@ -167,6 +167,7 @@ type session struct {
 
 	token string
 	pub   *rsa.PublicKey
+	ident *identity // family identity, opened on first use
 }
 
 const sessionSeconds = 7 * 24 * 60 * 60

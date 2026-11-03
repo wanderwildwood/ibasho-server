@@ -32,15 +32,31 @@ type deviceConfig struct {
 	Token    string `json:"token"`     // the bearer token Overland sends
 	User     string `json:"fmd_user"`  // FMD Server account
 	Password string `json:"fmd_password"`
+	// Family sharing: the account names this device's last place is shared with. Absent = the
+	// shim does no family work for this device; [] = shares with no one (and withdraws copies).
+	ShareWith []string `json:"share_with,omitempty"`
 }
 
 type config struct {
 	FmdURL  string         `json:"fmd_url"`
 	Listen  string         `json:"listen"`
 	Devices []deviceConfig `json:"devices"`
+	// Where pinned family keys are kept (not secret). Default: "<config>.family.json".
+	FamilyState string `json:"family_state"`
 }
 
 func loadConfig(path string) (*config, error) {
+	c, err := readConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	if c.FamilyState == "" {
+		c.FamilyState = path + ".family.json"
+	}
+	return c, nil
+}
+
+func readConfig(path string) (*config, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -124,6 +140,14 @@ func (o overlandLocation) toFmdJSON() (string, error) {
 	return string(b), err
 }
 
+func pointTime(stamp string) (time.Time, error) {
+	ts, err := time.Parse("2006-01-02T15:04:05-0700", stamp)
+	if err != nil {
+		ts, err = time.Parse(time.RFC3339, stamp)
+	}
+	return ts, err
+}
+
 func provider(motion []string) string {
 	if len(motion) == 0 {
 		return "Overland"
@@ -155,11 +179,12 @@ type deviceState struct {
 type shim struct {
 	byToken map[string]*deviceState
 	order   []*deviceState
+	pins    *pinStore
 }
 
 func newShim(c *config) *shim {
 	client := newFmdClient(c.FmdURL)
-	s := &shim{byToken: map[string]*deviceState{}}
+	s := &shim{byToken: map[string]*deviceState{}, pins: loadPins(c.FamilyState)}
 	for _, d := range c.Devices {
 		st := &deviceState{
 			cfg:     d,
@@ -210,6 +235,7 @@ func (s *shim) handleOverland(w http.ResponseWriter, r *http.Request) {
 	var stored, failed int
 	var lastErr string
 	var newest time.Time
+	var newestPayload string
 	for _, loc := range batch.Locations {
 		payload, err := loc.toFmdJSON()
 		if err != nil {
@@ -223,8 +249,9 @@ func (s *shim) handleOverland(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		stored++
-		if ts, err := time.Parse("2006-01-02T15:04:05-0700", loc.Properties.Timestamp); err == nil && ts.After(newest) {
+		if ts, err := pointTime(loc.Properties.Timestamp); err == nil && ts.After(newest) {
 			newest = ts
+			newestPayload = payload
 		}
 	}
 
@@ -238,6 +265,17 @@ func (s *shim) handleOverland(w http.ResponseWriter, r *http.Request) {
 		dev.lastError = lastErr
 	}
 	dev.mu.Unlock()
+
+	// Family: seal the newest point for the people this device shares with. A failure here is
+	// logged and never fails the batch: the points themselves are stored.
+	if dev.cfg.ShareWith != nil && newestPayload != "" {
+		n, err := dev.session.shareNewest(newestPayload, newest.UnixMilli(), dev.cfg.ShareWith, s.pins)
+		if err != nil {
+			log.Printf("%s: family sharing failed: %v", dev.cfg.Name, err)
+		} else if n > 0 {
+			log.Printf("%s: shared the last place with %d", dev.cfg.Name, n)
+		}
+	}
 
 	if failed > 0 {
 		log.Printf("%s: stored %d, failed %d: %s", dev.cfg.Name, stored, failed, lastErr)
@@ -310,6 +348,8 @@ func main() {
 		cmdCheck(os.Args[2:])
 	case "delete":
 		cmdDelete(os.Args[2:])
+	case "family":
+		cmdFamily(os.Args[2:])
 	default:
 		usage()
 	}
@@ -320,7 +360,8 @@ func usage() {
   fmd-overland serve    -config <path>
   fmd-overland register -fmd-url <url> -user <name> -password <pw> -registration-token <tok> [-endpoint <url>]
   fmd-overland check    -fmd-url <url> -user <name> -password <pw>
-  fmd-overland delete   -fmd-url <url> -user <name> -password <pw>`)
+  fmd-overland delete   -fmd-url <url> -user <name> -password <pw>
+  fmd-overland family   -config <path> -device <name>`)
 	os.Exit(2)
 }
 
@@ -443,4 +484,37 @@ func cmdDelete(args []string) {
 		log.Fatalf("delete: %v", err)
 	}
 	fmt.Printf("Deleted account %s and everything it stored.\n", *user)
+}
+
+// cmdFamily shows what the people of the family share with one configured device's account,
+// opened with that account's identity key (the same view the web page gives).
+func cmdFamily(args []string) {
+	fs := flag.NewFlagSet("family", flag.ExitOnError)
+	path := fs.String("config", "/etc/fmd-overland/config.json", "Path to the config file")
+	name := fs.String("device", "", "The device's name in the config")
+	fs.Parse(args)
+
+	c, err := loadConfig(*path)
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+	s := newShim(c)
+	for _, d := range s.order {
+		if d.cfg.Name != *name {
+			continue
+		}
+		seen, err := d.session.look(s.pins)
+		if err != nil {
+			log.Fatalf("family: %v", err)
+		}
+		for _, p := range seen {
+			if p.Plain != "" {
+				fmt.Printf("%s: %s\n", p.Owner, p.Plain)
+			} else {
+				fmt.Printf("%s: %s\n", p.Owner, p.Note)
+			}
+		}
+		return
+	}
+	log.Fatalf("no device named %q in the config", *name)
 }

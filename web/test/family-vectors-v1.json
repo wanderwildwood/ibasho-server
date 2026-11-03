@@ -1,0 +1,13 @@
+{
+  "username": "overland-test",
+  "masterKey64": "",
+  "password": "made-up-password-for-tests",
+  "encPrivate64": "q4vTkSxsMDtW2VTT4/W8VlQG7lCN8bNnk2y+y/t7KygN6pK0GVfeN1IeqzTaEK9FedKN7hC2pqURlmB3oupC4ysb01fV0FRQeP/1k25P2bSTVJJd6aytownATVAVDFf+7lOSJ9U3eCZ0vSHPv/3IKTAatT7u3kncyuhUcsM=",
+  "publicKey64": "BHoboiDLTfQ5O42H6F0cdI/dmdEGTXUJWRkM7wI3RRKKVFFBXDIeOWaj+gJ4azqYzmtk6FXnzxQvohjNOX0dALo=",
+  "owner": "",
+  "ownerPublic64": "",
+  "unixMillis": 0,
+  "sealed64": "",
+  "plaintext": "",
+  "note": "Made by overland/family_test.go: a v1 account's identity, wrapped under Argon2id of the password."
+}

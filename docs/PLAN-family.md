@@ -114,10 +114,20 @@ sealed to this phone, and opens them on the phone.
 
 ## The iPhone (Overland) account
 
-The Overland account's locations are encrypted by the shim on the server, which therefore
-already sees them in the clear. To share them, the shim would hold that account's identity
-key and seal like a phone does. That costs nothing in privacy compared with today, but it is a
-server-held secret. Not in the first slice; needs a decision.
+Decided: the shim acts for the iPhone account. After each Overland batch it seals the newest
+point for the people listed in that device's `share_with` in the shim config (absent = no
+family work, `[]` = share with no one and withdraw copies). The person on the iPhone sees the
+family on the web page, logged in as that account; `fmd-overland family -config <path>
+-device <name>` shows the same from the shim's side.
+
+Where the key lives: on the server, in the account's `identity_enc_private`, wrapped with
+AES-256-GCM under Argon2id("context:familyIdentity" || password, salt = first 16 bytes of
+SHA-256("ibasho_v1_kek_identity" || username)), which is how the v1 protocol already protects
+that account's RSA private key. The shim keeps no new secret: it re-derives the key from the
+password already in its config file. The web page derives the same key on a v1 log-in
+(`web/src/lib/familyv1.ts`). The only new file is the shim's pin store (default
+`<config>.family.json`, mode 600), which holds public keys only. The shim already sees these
+points in the clear, so this costs no privacy compared with before.
 
 ## Slices
 
@@ -130,17 +140,13 @@ server-held secret. Not in the first slice; needs a decision.
      regular upload, key pinning, and a Family screen under Settings (sharing on/off, tick
      people, see who shares with you, open a place in whatever map app the phone has). Logging
      out of the server forgets the choices and pins.
-2. **Next**: Overland sealing in the shim; a small map on the Family screen instead of handing
+2. **Next**: a small map on the Family screen instead of handing
    off to a map app; "ask for a fresh place" (a push to the other phone, only if that person
    allows it); fingerprints compared by QR.
 3. **Not planned**: trails, history, geofences, arrival alerts.
 
-## Open questions
+## Decided
 
-1. Opt-in per person (this plan) or everyone-sees-everyone with one pause switch (the earlier
-   server WIP said "everyone registered can be seen")?
-2. Is pinning plus a "key changed" warning enough, or should sharing need an in-person
-   fingerprint check first?
-3. Should the server drop copies older than some age (say 7 days), or keep the last one forever
-   with its age shown?
-4. Overland: let the shim hold the iPhone account's identity key so that account can share?
+Opt-in per person; a changed key is warned about and re-trusted by a double tap; only the last
+place is kept, with its age shown, and never expires on its own; the Overland shim holds the
+iPhone account's key (above). Deploying to a live server is a separate decision.

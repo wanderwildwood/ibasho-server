@@ -10,6 +10,8 @@ interface KeyStoreRecord {
 export interface CryptoKeysV1 {
   rsaEncKey: CryptoKey;
   rsaSigKey: CryptoKey;
+  // Wraps this account's family identity key (see familyv1.ts). Missing in older sessions.
+  identityKek?: CryptoKey;
 }
 
 export interface CryptoKeysV2 {

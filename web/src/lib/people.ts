@@ -49,7 +49,7 @@ let cached: { user: string; identity: Identity } | null = null;
 /** This account's identity: opened from the server, or made now if it has none yet. */
 async function myIdentity(): Promise<Identity> {
   const { userData } = useStore.getState();
-  const kek = userData?.keysV2?.identityKek;
+  const kek = userData?.keysV2?.identityKek ?? userData?.keysV1?.identityKek;
   if (!userData || !kek) throw new NeedsLogin();
   if (cached?.user === userData.fmdId) return cached.identity;
 

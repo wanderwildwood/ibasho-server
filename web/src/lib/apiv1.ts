@@ -9,6 +9,7 @@ import {
 } from './api';
 import { CRYPTO_PROTO_V1, decryptData, sign, unwrapPrivateKey } from './crypto';
 import { CryptoKeysV1 } from './keystore';
+import { deriveIdentityKekV1 } from './familyv1';
 import { UserData, logout, useStore } from './store';
 
 interface DataPackage {
@@ -73,6 +74,7 @@ export class ApiV1Service extends BaseApiService {
     const keysV1: CryptoKeysV1 = {
       rsaEncKey,
       rsaSigKey,
+      identityKek: await deriveIdentityKekV1(userName, password),
     };
     const data: UserData = {
       fmdId: userName,
