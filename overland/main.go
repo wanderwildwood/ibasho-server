@@ -33,7 +33,8 @@ type deviceConfig struct {
 	User     string `json:"fmd_user"`  // FMD Server account
 	Password string `json:"fmd_password"`
 	// Family sharing: the account names this device's last place is shared with. Absent = the
-	// shim does no family work for this device; [] = shares with no one (and withdraws copies).
+	// shim does no family work for this device; [] = shares with no one (and withdraws copies);
+	// ["*"] = shares with everyone on the server, including accounts made later.
 	ShareWith []string `json:"share_with,omitempty"`
 }
 

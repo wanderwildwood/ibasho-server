@@ -203,6 +203,9 @@ type familyPerson struct {
 	Paused    bool   `json:"paused"`
 }
 
+// shareWithEveryone in share_with shares with every account on the server, now and later.
+const shareWithEveryone = "*"
+
 type sharePlan struct {
 	sealTo     []familyPerson
 	audience   []string
@@ -211,17 +214,19 @@ type sharePlan struct {
 
 // planShare: only chosen people with a key; a first-seen key is pinned (pins is updated); a key
 // that differs from its pin is not sealed to, and the person stays in the audience so the copy
-// sealed to their old key is left alone.
+// sealed to their old key is left alone. A chosen "*" means everyone on the server, including
+// accounts made later.
 func planShare(me string, people []familyPerson, chosen []string, pins map[string]string) sharePlan {
 	want := map[string]bool{}
 	for _, c := range chosen {
 		want[c] = true
 	}
+	everyone := want[shareWithEveryone]
 	sort.Slice(people, func(i, j int) bool { return people[i].Username < people[j].Username })
 	var p sharePlan
 	p.audience = []string{}
 	for _, x := range people {
-		if x.Username == me || !want[x.Username] {
+		if x.Username == me || !(everyone || want[x.Username]) {
 			continue
 		}
 		p.audience = append(p.audience, x.Username)

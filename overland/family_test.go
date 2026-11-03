@@ -128,6 +128,18 @@ func TestPlanShare(t *testing.T) {
 		!reflect.DeepEqual(p.keyChanged, []string{"ada-whitlock"}) || pins["ada-whitlock"] != "OLD" {
 		t.Fatalf("changed key: %+v", p)
 	}
+	// "*" is everyone but me, a newcomer included; a changed key still stops sealing.
+	p = planShare("me", append([]familyPerson{}, people...), []string{"*"}, pins)
+	if !reflect.DeepEqual(p.audience, []string{"ada-whitlock", "newcomer", "tomas-reyes"}) ||
+		len(p.sealTo) != 1 || p.sealTo[0].Username != "tomas-reyes" ||
+		!reflect.DeepEqual(p.keyChanged, []string{"ada-whitlock"}) {
+		t.Fatalf("everyone: %+v", p)
+	}
+	people = append(people, familyPerson{"later", "KEY-L", false})
+	p = planShare("me", append([]familyPerson{}, people...), []string{"*"}, pins)
+	if len(p.sealTo) != 2 || p.sealTo[0].Username != "later" || pins["later"] != "KEY-L" {
+		t.Fatalf("an account made later: %+v", p)
+	}
 }
 
 // The v1 wrapping key (this shim's accounts) must match the web page's familyv1.ts. This writes a

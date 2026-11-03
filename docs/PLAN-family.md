@@ -1,8 +1,8 @@
 # Family locations: plan
 
 The same document lives in both repos (`ibasho/docs/PLAN-family.md` and
-`ibasho-server/docs/PLAN-family.md`). Status: design plus a first slice on branch `family` in
-both. Nothing here is released or deployed.
+`ibasho-server/docs/PLAN-family.md`). Status: the first slice is released (app 0.1.40, server
+v0.17.0-ibasho.4).
 
 ## What it is
 
@@ -116,7 +116,8 @@ sealed to this phone, and opens them on the phone.
 
 Decided: the shim acts for the iPhone account. After each Overland batch it seals the newest
 point for the people listed in that device's `share_with` in the shim config (absent = no
-family work, `[]` = share with no one and withdraw copies). The person on the iPhone sees the
+family work, `[]` = share with no one and withdraw copies, `["*"]` = everyone on the server,
+including accounts made later). The person on the iPhone sees the
 family on the web page, logged in as that account; `fmd-overland family -config <path>
 -device <name>` shows the same from the shim's side.
 
@@ -149,4 +150,5 @@ points in the clear, so this costs no privacy compared with before.
 
 Opt-in per person; a changed key is warned about and re-trusted by a double tap; only the last
 place is kept, with its age shown, and never expires on its own; the Overland shim holds the
-iPhone account's key (above). Deploying to a live server is a separate decision.
+iPhone account's key (above). The Overland account shares with everyone on the server
+(`share_with: ["*"]`).
