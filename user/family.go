@@ -146,9 +146,20 @@ func (u *UserRepository) SetPaused(user *FMDUser, paused bool) error {
 // PutSealed stores the sealed copies, one per viewer, keeping only the newest. Copies for the
 // owner themself, for unknown people, or older than what is already held are skipped. It returns
 // how many were stored.
-func (u *UserRepository) PutSealed(owner *FMDUser, items []SealedPut) (int, error) {
+//
+// When audience is not nil it is the whole list of people the owner now shares with: copies held
+// for anyone else are deleted, and items for anyone else are skipped. That is how unticking a
+// person on the phone takes their copy away, on the next upload, without a separate request.
+func (u *UserRepository) PutSealed(owner *FMDUser, items []SealedPut, audience []string) (int, error) {
 	stored := 0
 	limit := uint64(time.Now().Add(maxClockAhead).UnixMilli())
+	var allowed map[string]bool
+	if audience != nil {
+		allowed = make(map[string]bool, len(audience))
+		for _, name := range audience {
+			allowed[name] = true
+		}
+	}
 
 	err := u.UB.DB.Transaction(func(tx *gorm.DB) error {
 		var row FMDUser
@@ -162,7 +173,21 @@ func (u *UserRepository) PutSealed(owner *FMDUser, items []SealedPut) (int, erro
 			return ErrNoIdentity
 		}
 
+		if audience != nil {
+			q := tx.Where("owner_id = ?", owner.Id)
+			if len(audience) > 0 {
+				q = q.Where("viewer_id NOT IN (?)",
+					tx.Model(&FMDUser{}).Select("id").Where("username IN ?", audience))
+			}
+			if err := q.Delete(&FamilyLocation{}).Error; err != nil {
+				return err
+			}
+		}
+
 		for _, it := range items {
+			if allowed != nil && !allowed[it.Viewer] {
+				continue
+			}
 			raw, err := base64.StdEncoding.DecodeString(it.Ciphertext)
 			if err != nil || len(raw) == 0 || len(raw) > MaxSealedBytes {
 				continue

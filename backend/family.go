@@ -72,7 +72,8 @@ type familyMe struct {
 	Paused   bool   `json:"paused"`
 }
 
-// Everyone registered here, with the key to seal to. Everyone sees everyone.
+// Everyone registered here, with the key to seal to. Listing a name shows no place: a place is
+// seen only where its owner's phone sealed a copy to the viewer.
 func getFamily2(w http.ResponseWriter, r *http.Request) {
 	u := userFromContext(r)
 	people, err := uio.People(u)
@@ -110,6 +111,8 @@ func postFamilyPause2(w http.ResponseWriter, r *http.Request) {
 
 type sealedPutRequest struct {
 	Items []user.SealedPut `json:"items"`
+	// Everyone the owner now shares with. When present, copies for anyone else are removed.
+	Audience *[]string `json:"audience,omitempty"`
 }
 
 type sealedGetResponse struct {
@@ -122,12 +125,16 @@ func postFamilyLocations2(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ERR_JSON_INVALID, http.StatusBadRequest)
 		return
 	}
-	if len(body.Items) > maxFamilyItems {
+	if len(body.Items) > maxFamilyItems || (body.Audience != nil && len(*body.Audience) > maxFamilyItems) {
 		http.Error(w, "too many items", http.StatusBadRequest)
 		return
 	}
+	var audience []string
+	if body.Audience != nil {
+		audience = append([]string{}, *body.Audience...)
+	}
 	u := userFromContext(r)
-	stored, err := uio.PutSealed(u, body.Items)
+	stored, err := uio.PutSealed(u, body.Items, audience)
 	switch {
 	case err == nil:
 		writeAsJson(w, map[string]int{"stored": stored})

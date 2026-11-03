@@ -121,3 +121,27 @@ test('vectors for the Android app', async () => {
     ) + '\n'
   );
 });
+
+// The other direction: a place sealed by the Android app's FamilyCrypto.kt (its unit test writes
+// this file) must open here byte for byte.
+test('opens what the Android app sealed', async () => {
+  const v = JSON.parse(
+    readFileSync(new URL('./family-vectors-kotlin.json', import.meta.url), 'utf8')
+  );
+  const kek = await deriveIdentityKek(v.username, await masterKey(unb64(v.masterKey64)));
+  const me = await openIdentity(v.username, kek, unb64(v.encPrivate64));
+  assert.equal(b64(me.publicRaw), v.publicKey64);
+  const plain = await open(
+    v.username,
+    me.privateKey,
+    v.owner,
+    unb64(v.ownerPublic64),
+    v.unixMillis,
+    unb64(v.sealed64)
+  );
+  assert.equal(new TextDecoder().decode(plain), v.plaintext);
+  // And not as from anyone else, nor at another time.
+  await assert.rejects(
+    open(v.username, me.privateKey, v.owner, unb64(v.ownerPublic64), v.unixMillis + 1, unb64(v.sealed64))
+  );
+});

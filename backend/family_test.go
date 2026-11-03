@@ -270,6 +270,57 @@ func TestOnlyTheLastKnownPositionIsKept(t *testing.T) {
 	}
 }
 
+func (f *fam) putTo(p person, audience []string, items ...map[string]any) (int, []byte) {
+	return f.do(p.token, "POST", "/family/locations", map[string]any{"items": items, "audience": audience})
+}
+
+func TestAudienceWithdrawsAPerson(t *testing.T) {
+	f := newFam(t)
+	a, b, c := f.register("alice"), f.register("bob"), f.register("carol")
+	for _, p := range []person{a, b, c} {
+		f.giveIdentity(p)
+	}
+	now := time.Now().UnixMilli()
+	if code, out := f.putTo(a, []string{"bob", "carol"}, sealed(1, now, "bob"), sealed(1, now, "carol")); code != 200 ||
+		!strings.Contains(string(out), `"stored":2`) {
+		t.Fatalf("put: %d %s", code, out)
+	}
+
+	// Carol is unticked: her copy goes on the next upload, and an item for her is refused.
+	code, out := f.putTo(a, []string{"bob"}, sealed(2, now+1000, "bob"), sealed(2, now+1000, "carol"))
+	if code != 200 || !strings.Contains(string(out), `"stored":1`) {
+		t.Fatalf("put: %d %s", code, out)
+	}
+	if n := len(f.seen(c).Items); n != 0 {
+		t.Errorf("carol was taken off the audience but still sees %d", n)
+	}
+	if s := f.seen(b); len(s.Items) != 1 || s.Items[0].UnixMillis != now+1000 {
+		t.Errorf("bob should see the newer place: %+v", s)
+	}
+
+	// An empty audience shares with no one.
+	if code, _ := f.putTo(a, []string{}); code != 200 {
+		t.Fatalf("empty audience: %d", code)
+	}
+	if n := len(f.seen(b).Items); n != 0 {
+		t.Errorf("empty audience left bob %d", n)
+	}
+
+	// Without an audience nothing is withdrawn (older clients).
+	f.put(a, sealed(3, now+2000, "bob"))
+	f.put(a, sealed(3, now+2000, "carol"))
+	if len(f.seen(b).Items) != 1 || len(f.seen(c).Items) != 1 {
+		t.Error("a put without an audience should not withdraw anyone")
+	}
+
+	// Carol's own copies for bob are untouched by alice's audience.
+	f.put(c, sealed(4, now, "bob"))
+	f.putTo(a, []string{})
+	if s := f.seen(b); len(s.Items) != 1 || s.Items[0].Owner != "carol" {
+		t.Errorf("alice's audience touched carol's copy: %+v", s)
+	}
+}
+
 func TestPauseWithdrawsAndBlocks(t *testing.T) {
 	f := newFam(t)
 	a, b := f.register("alice"), f.register("bob")
